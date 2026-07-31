@@ -42,7 +42,10 @@ public:
     void Shutdown();
 
     void NewFrame();
-    bool Render(ImDrawData* drawData, const float clearColor[4]);
+    bool Render(
+        ImDrawData* drawData,
+        const float clearColor[4],
+        std::string& errorMessage);
     void Resize(std::uint32_t width, std::uint32_t height);
     void WaitForIdle();
 
@@ -58,7 +61,7 @@ public:
     void DestroyTexture(TextureResource& texture);
 
 private:
-    static constexpr std::uint32_t FrameCount = 2;
+    static constexpr std::uint32_t FrameCount = 3;
     static constexpr std::uint32_t BackBufferCount = 3;
     static constexpr std::uint32_t SrvHeapSize = 256;
 
@@ -131,4 +134,3 @@ private:
 };
 
 } // namespace smf::backend
-

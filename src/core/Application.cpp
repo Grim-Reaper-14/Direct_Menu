@@ -165,11 +165,18 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
 
         ImGui::Render();
         constexpr float clearColor[4] = {0.018F, 0.024F, 0.034F, 1.0F};
-        if (!backend_.Render(ImGui::GetDrawData(), clearColor)) {
-            logger_.Critical("D3D12 frame rendering failed.");
+        std::string renderError;
+        if (!backend_.Render(ImGui::GetDrawData(), clearColor, renderError)) {
+            logger_.Critical(renderError);
+            const std::filesystem::path logPath =
+                fileSystem_.Logs() / L"latest.log";
+            const std::wstring message =
+                L"Direct3D 12 rendering failed.\n\n" +
+                filesystem::FileSystemManager::ToWide(renderError) +
+                L"\n\nLog file:\n" + logPath.wstring();
             MessageBoxW(
                 window_,
-                L"Direct3D 12 rendering failed. See Logs\\latest.log.",
+                message.c_str(),
                 WindowTitle,
                 MB_OK | MB_ICONERROR);
             done = true;

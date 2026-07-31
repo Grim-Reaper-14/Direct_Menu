@@ -19,6 +19,22 @@ std::string HResultMessage(const std::string_view operation, const HRESULT resul
         static_cast<std::uint32_t>(result));
 }
 
+std::string D3D12FailureMessage(
+    ID3D12Device* device,
+    const std::string_view operation,
+    const HRESULT result) {
+    std::string message = HResultMessage(operation, result);
+    if (device != nullptr) {
+        const HRESULT removedReason = device->GetDeviceRemovedReason();
+        if (FAILED(removedReason)) {
+            message += std::format(
+                " Device removal reason: 0x{:08X}.",
+                static_cast<std::uint32_t>(removedReason));
+        }
+    }
+    return message;
+}
+
 D3D12_HEAP_PROPERTIES HeapProperties(const D3D12_HEAP_TYPE type) {
     D3D12_HEAP_PROPERTIES properties{};
     properties.Type = type;
@@ -342,19 +358,42 @@ void D3D12Backend::NewFrame() {
     ImGui_ImplWin32_NewFrame();
 }
 
-bool D3D12Backend::Render(ImDrawData* drawData, const float clearColor[4]) {
+bool D3D12Backend::Render(
+    ImDrawData* drawData,
+    const float clearColor[4],
+    std::string& errorMessage) {
     if (swapChain_ == nullptr || drawData == nullptr) {
+        errorMessage = "Render called without a valid swap chain or draw data.";
         return false;
     }
 
     FrameContext* frame = WaitForNextFrame();
     if (frame == nullptr) {
+        errorMessage = "WaitForNextFrame failed while waiting for the D3D12 fence.";
         return false;
     }
 
     const UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
-    if (FAILED(frame->commandAllocator->Reset()) ||
-        FAILED(commandList_->Reset(frame->commandAllocator.Get(), nullptr))) {
+    if (backBufferIndex >= renderTargets_.size() ||
+        renderTargets_[backBufferIndex] == nullptr) {
+        errorMessage = "The current D3D12 back buffer is unavailable.";
+        return false;
+    }
+
+    HRESULT result = frame->commandAllocator->Reset();
+    if (FAILED(result)) {
+        errorMessage = D3D12FailureMessage(
+            device_.Get(),
+            "Reset frame command allocator",
+            result);
+        return false;
+    }
+    result = commandList_->Reset(frame->commandAllocator.Get(), nullptr);
+    if (FAILED(result)) {
+        errorMessage = D3D12FailureMessage(
+            device_.Get(),
+            "Reset frame command list",
+            result);
         return false;
     }
 
@@ -386,7 +425,12 @@ bool D3D12Backend::Render(ImDrawData* drawData, const float clearColor[4]) {
     toPresent.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
     commandList_->ResourceBarrier(1, &toPresent);
 
-    if (FAILED(commandList_->Close())) {
+    result = commandList_->Close();
+    if (FAILED(result)) {
+        errorMessage = D3D12FailureMessage(
+            device_.Get(),
+            "Close frame command list",
+            result);
         return false;
     }
 
@@ -394,7 +438,12 @@ bool D3D12Backend::Render(ImDrawData* drawData, const float clearColor[4]) {
     commandQueue_->ExecuteCommandLists(1, commandLists);
 
     const std::uint64_t signaledValue = ++lastSignaledFence_;
-    if (FAILED(commandQueue_->Signal(fence_.Get(), signaledValue))) {
+    result = commandQueue_->Signal(fence_.Get(), signaledValue);
+    if (FAILED(result)) {
+        errorMessage = D3D12FailureMessage(
+            device_.Get(),
+            "Signal frame fence",
+            result);
         return false;
     }
     frame->fenceValue = signaledValue;
@@ -402,7 +451,16 @@ bool D3D12Backend::Render(ImDrawData* drawData, const float clearColor[4]) {
     const HRESULT presentResult = swapChain_->Present(1, 0);
     occluded_ = presentResult == DXGI_STATUS_OCCLUDED;
     ++frameIndex_;
-    return SUCCEEDED(presentResult) || occluded_;
+    if (FAILED(presentResult) && !occluded_) {
+        errorMessage = D3D12FailureMessage(
+            device_.Get(),
+            "Present swap chain",
+            presentResult);
+        return false;
+    }
+
+    errorMessage.clear();
+    return true;
 }
 
 void D3D12Backend::Resize(const std::uint32_t width, const std::uint32_t height) {
