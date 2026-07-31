@@ -29,8 +29,16 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force package/assets | Out-Null
+          New-Item -ItemType Directory -Force package/Source | Out-Null
           Copy-Item build/Release/Direct_Menu.exe package/Direct_Menu.exe
           Copy-Item build/Release/assets/direct_menu_neon_background.jpg package/assets/direct_menu_neon_background.jpg
+          Copy-Item CMakeLists.txt package/Source/CMakeLists.txt
+          Copy-Item CMakePresets.json package/Source/CMakePresets.json
+          Copy-Item README.md package/Source/README.md
+          Copy-Item build_windows.bat package/Source/build_windows.bat
+          Copy-Item src package/Source/src -Recurse
+          Copy-Item tests package/Source/tests -Recurse
+          Copy-Item assets package/Source/assets -Recurse
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
