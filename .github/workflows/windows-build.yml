@@ -25,9 +25,16 @@ jobs:
       - name: Run smoke tests
         run: ctest --test-dir build -C Release --output-on-failure
 
+      - name: Package release
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package/assets | Out-Null
+          Copy-Item build/Release/Direct_Menu.exe package/Direct_Menu.exe
+          Copy-Item build/Release/assets/direct_menu_neon_background.jpg package/assets/direct_menu_neon_background.jpg
+
       - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
           name: Direct_Menu-Windows-x64
-          path: build/Release
+          path: package
           if-no-files-found: error
