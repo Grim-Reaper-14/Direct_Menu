@@ -90,6 +90,8 @@ target_link_libraries(Direct_Menu PRIVATE
     d3d12
     dxgi
     dxguid
+    d3dcompiler
+    dwmapi
     windowscodecs
     ole32
     shell32
