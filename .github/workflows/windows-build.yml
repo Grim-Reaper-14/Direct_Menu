@@ -1,0 +1,33 @@
+name: Windows Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake --preset windows-msvc
+
+      - name: Build release
+        run: cmake --build --preset windows-release
+
+      - name: Run smoke tests
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Direct_Menu-Windows-x64
+          path: build/Release/Direct_Menu.exe
+          if-no-files-found: error
