@@ -11,6 +11,15 @@
 #include <string>
 #include <thread>
 
+// Dear ImGui intentionally leaves this callback declaration to the application
+// because including Windows types from imgui_impl_win32.h would pollute users of
+// that header.
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(
+    HWND window,
+    UINT message,
+    WPARAM wParam,
+    LPARAM lParam);
+
 namespace smf::core {
 namespace {
 
