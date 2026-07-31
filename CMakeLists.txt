@@ -102,6 +102,15 @@ set_target_properties(Direct_Menu PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:Direct_Menu>"
 )
 
+add_custom_command(TARGET Direct_Menu POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:Direct_Menu>/assets"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/assets/direct_menu_neon_background.jpg"
+        "$<TARGET_FILE_DIR:Direct_Menu>/assets/direct_menu_neon_background.jpg"
+    COMMENT "Copying the Direct_Menu neon background"
+)
+
 include(CTest)
 if(BUILD_TESTING)
     add_executable(FeatureRegistrySmoke

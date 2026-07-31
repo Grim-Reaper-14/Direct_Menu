@@ -57,6 +57,10 @@ bool ConfigManager::Save(
     output << "font_scale=" << std::fixed << std::setprecision(3)
            << settings.fontScale << '\n';
     output << "image_path=" << settings.imagePath << '\n';
+    output << "image_background="
+           << (settings.imageBackgroundEnabled ? 1 : 0) << '\n';
+    output << "image_opacity=" << std::fixed << std::setprecision(3)
+           << settings.imageBackgroundOpacity << '\n';
 
     const auto registryValues = registry.SaveableValues();
     const std::map<std::string, std::string> sortedValues{
@@ -123,6 +127,16 @@ bool ConfigManager::Load(
             }
         } else if (key == "image_path") {
             settings.imagePath = value;
+        } else if (key == "image_background") {
+            settings.imageBackgroundEnabled =
+                value == "1" || value == "true" || value == "on";
+        } else if (key == "image_opacity") {
+            try {
+                settings.imageBackgroundOpacity =
+                    std::clamp(std::stof(value), 0.05F, 1.0F);
+            } catch (...) {
+                ++ignoredValues;
+            }
         } else if (key.starts_with("feature.")) {
             if (!registry.ApplyValue(key.substr(8), value)) {
                 ++ignoredValues;

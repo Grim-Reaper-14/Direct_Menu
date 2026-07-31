@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cfloat>
 #include <cstring>
 #include <format>
 #include <string>
@@ -53,6 +54,11 @@ void CopyToBuffer(std::array<char, Size>& destination, const std::string_view so
     destination.fill('\0');
     const std::size_t count = std::min(source.size(), Size - 1);
     std::copy_n(source.data(), count, destination.data());
+}
+
+ImU32 WithAlpha(const ImVec4 color, const float alpha) {
+    return ImGui::ColorConvertFloat4ToU32(
+        {color.x, color.y, color.z, alpha});
 }
 
 } // namespace
@@ -95,6 +101,8 @@ void Menu::RenderWelcome() {
         return;
     }
 
+    DrawAppliedBackground();
+
     constexpr ImVec2 panelSize{410.0F, 440.0F};
     const ImVec2 available = ImGui::GetContentRegionAvail();
     ImGui::SetCursorPos({
@@ -105,13 +113,8 @@ void Menu::RenderWelcome() {
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 12.0F);
     ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0F);
     if (ImGui::BeginChild("##welcome_panel", panelSize, true)) {
-        const ImVec4 accent = themes_.Accent();
         ImGui::Dummy({0.0F, 18.0F});
-        ImGui::PushStyleColor(ImGuiCol_Text, accent);
-        ImGui::SetWindowFontScale(1.35F);
-        ImGui::TextUnformatted("DIRECT_MENU");
-        ImGui::SetWindowFontScale(1.0F);
-        ImGui::PopStyleColor();
+        DrawNeonHeader();
 
         ImGui::TextDisabled("Direct3D 12 / C++20 / Dear ImGui");
         ImGui::Spacing();
@@ -164,12 +167,10 @@ void Menu::RenderMain() {
         return;
     }
 
-    const ImVec4 accent = themes_.Accent();
-    ImGui::PushStyleColor(ImGuiCol_Text, accent);
-    ImGui::SetWindowFontScale(1.20F);
-    ImGui::TextUnformatted("DIRECT_MENU");
-    ImGui::SetWindowFontScale(1.0F);
-    ImGui::PopStyleColor();
+
+    DrawAppliedBackground();
+
+    DrawNeonHeader();
 
     const char* hotkeyLabel = "F5  HIDE";
     const float hotkeyWidth = ImGui::CalcTextSize(hotkeyLabel).x;
@@ -308,6 +309,103 @@ bool Menu::SubmenuButton(const std::string_view label, const MenuPage target) {
         return true;
     }
     return false;
+}
+
+void Menu::DrawAppliedBackground() const {
+    if (!settings_.imageBackgroundEnabled || !images_.HasImage()) {
+        return;
+    }
+
+    const auto& texture = images_.Texture();
+    const ImVec2 position = ImGui::GetWindowPos();
+    const ImVec2 size = ImGui::GetWindowSize();
+    if (size.x <= 0.0F || size.y <= 0.0F ||
+        texture.width == 0 || texture.height == 0) {
+        return;
+    }
+
+    const float imageAspect =
+        static_cast<float>(texture.width) / static_cast<float>(texture.height);
+    const float windowAspect = size.x / size.y;
+    ImVec2 uv0{0.0F, 0.0F};
+    ImVec2 uv1{1.0F, 1.0F};
+    if (imageAspect > windowAspect) {
+        const float visibleWidth = windowAspect / imageAspect;
+        uv0.x = (1.0F - visibleWidth) * 0.5F;
+        uv1.x = 1.0F - uv0.x;
+    } else {
+        const float visibleHeight = imageAspect / windowAspect;
+        uv0.y = (1.0F - visibleHeight) * 0.5F;
+        uv1.y = 1.0F - uv0.y;
+    }
+
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    drawList->AddImage(
+        static_cast<ImTextureID>(texture.gpuDescriptor.ptr),
+        position,
+        {position.x + size.x, position.y + size.y},
+        uv0,
+        uv1,
+        IM_COL32(
+            255,
+            255,
+            255,
+            static_cast<int>(settings_.imageBackgroundOpacity * 255.0F)));
+    drawList->AddRectFilled(
+        position,
+        {position.x + size.x, position.y + size.y},
+        IM_COL32(2, 7, 16, 72));
+}
+
+void Menu::DrawNeonHeader() const {
+    constexpr std::string_view title{"DIRECT // MENU"};
+    const ImVec4 accent = themes_.Accent();
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImFont* font = ImGui::GetFont();
+    const float size = ImGui::GetFontSize() * 1.34F;
+    const ImVec2 position = ImGui::GetCursorScreenPos();
+
+    for (const ImVec2 offset : {
+             ImVec2{-2.0F, 0.0F},
+             ImVec2{2.0F, 0.0F},
+             ImVec2{0.0F, -2.0F},
+             ImVec2{0.0F, 2.0F}}) {
+        drawList->AddText(
+            font,
+            size,
+            {position.x + offset.x, position.y + offset.y},
+            WithAlpha(accent, 0.20F),
+            title.data(),
+            title.data() + title.size());
+    }
+    drawList->AddText(
+        font,
+        size,
+        position,
+        WithAlpha(accent, 1.0F),
+        title.data(),
+        title.data() + title.size());
+    drawList->AddText(
+        font,
+        size,
+        {position.x, position.y - 1.0F},
+        IM_COL32(205, 240, 255, 210),
+        title.data(),
+        title.data() + title.size());
+
+    const ImVec2 textSize = font->CalcTextSizeA(
+        size,
+        FLT_MAX,
+        0.0F,
+        title.data(),
+        title.data() + title.size());
+    const float lineY = position.y + textSize.y + 3.0F;
+    drawList->AddLine(
+        {position.x, lineY},
+        {position.x + textSize.x, lineY},
+        WithAlpha(accent, 0.75F),
+        1.5F);
+    ImGui::Dummy({textSize.x, textSize.y + 7.0F});
 }
 
 void Menu::RenderInfoCard(const std::string_view text) const {
@@ -607,7 +705,7 @@ void Menu::RenderThemes() {
 void Menu::RenderImages() {
     RenderInfoCard(
         "Load PNG, JPG, BMP, or TIFF images through Windows Imaging "
-        "Component and preview the D3D12 texture live.");
+        "Component. The loaded texture is applied to the menu background live.");
 
     ImGui::InputText(
         "Image Path",
@@ -641,6 +739,16 @@ void Menu::RenderImages() {
 
     if (images_.HasImage()) {
         ImGui::Spacing();
+        ImGui::Checkbox(
+            "Apply as Menu Background",
+            &settings_.imageBackgroundEnabled);
+        ImGui::SliderFloat(
+            "Background Brightness",
+            &settings_.imageBackgroundOpacity,
+            0.05F,
+            1.0F,
+            "%.2f");
+
         const auto& texture = images_.Texture();
         const float availableWidth = ImGui::GetContentRegionAvail().x;
         const float maximumWidth = std::min(availableWidth, 360.0F);

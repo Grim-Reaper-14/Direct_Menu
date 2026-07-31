@@ -29,5 +29,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Direct_Menu-Windows-x64
-          path: build/Release/Direct_Menu.exe
+          path: build/Release
           if-no-files-found: error

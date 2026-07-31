@@ -6,6 +6,7 @@
 #include <imgui_impl_win32.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <format>
 #include <string>
@@ -265,7 +266,30 @@ bool Application::InitializeGraphics(std::string& errorMessage) {
     fonts_.SetScale(settings_.fontScale);
     themes_.Apply(settings_.theme);
 
-    return backend_.InitializeImGui(window_, errorMessage);
+    if (!backend_.InitializeImGui(window_, errorMessage)) {
+        return false;
+    }
+
+    std::array<wchar_t, 32768> executablePath{};
+    const DWORD pathLength = GetModuleFileNameW(
+        nullptr,
+        executablePath.data(),
+        static_cast<DWORD>(executablePath.size()));
+    if (pathLength > 0 && pathLength < executablePath.size()) {
+        const std::filesystem::path defaultBackground =
+            std::filesystem::path{executablePath.data()}.parent_path() /
+            L"assets" / L"direct_menu_neon_background.jpg";
+        if (std::filesystem::exists(defaultBackground)) {
+            std::string imageError;
+            if (!images_.Load(defaultBackground, backend_, imageError)) {
+                logger_.Warning(
+                    "The included neon background could not be loaded: " +
+                    imageError);
+            }
+        }
+    }
+
+    return true;
 }
 
 void Application::RegisterBuiltInFeatures() {
