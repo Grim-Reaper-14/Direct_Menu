@@ -2,6 +2,7 @@
 
 #include <sol/sol.hpp>
 
+#include <chrono>
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -20,7 +21,7 @@ struct ScriptRecord {
     std::filesystem::path path;
     bool loaded{false};
     bool enabled{true};
-    bool autoLoad{false};
+    bool autoLoad{true};
     std::string author;
     std::string version;
     std::string description;
@@ -40,6 +41,7 @@ public:
 
     void Initialize(std::filesystem::path scriptsDirectory);
     void Refresh();
+    void Update();
 
     [[nodiscard]] bool Load(std::string_view name);
     [[nodiscard]] bool Unload(std::string_view name);
@@ -59,6 +61,7 @@ private:
 
     [[nodiscard]] bool ExecuteScript(ScriptRecord& script);
     void InvokeUnload(std::string_view name);
+    void RememberWriteTime(const ScriptRecord& script);
 
     logging::LoggerApi& logger_;
     sol::state& lua_;
@@ -67,6 +70,8 @@ private:
     std::filesystem::path scriptsDirectory_;
     std::vector<ScriptRecord> scripts_;
     std::unordered_map<std::string, RuntimeScript> runtimeScripts_;
+    std::unordered_map<std::string, std::filesystem::file_time_type> writeTimes_;
+    std::chrono::steady_clock::time_point nextHotReloadCheck_{};
 };
 
 } // namespace smf::scripting
