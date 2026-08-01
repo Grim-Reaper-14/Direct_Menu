@@ -55,7 +55,12 @@ add_executable(Direct_Menu WIN32
     src/features/FeatureRegistry.cpp
     src/filesystem/FileSystemManager.cpp
     src/logging/Logger.cpp
+    src/scripting/LuaBindingLibrary.cpp
+    src/scripting/LuaCommands.cpp
     src/scripting/LuaManager.cpp
+    src/scripting/LuaModule.cpp
+    src/scripting/LuaModuleManager.cpp
+    src/scripting/LuaScriptsManager.cpp
     src/ui/FontManager.cpp
     src/ui/ImageLoader.cpp
     src/ui/Menu.cpp
