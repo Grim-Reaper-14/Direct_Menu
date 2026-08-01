@@ -588,7 +588,6 @@ void Menu::RenderHome() {
     SubmenuButton("Unlocks", MenuPage::Unlocks);
     SubmenuButton("Vehicle", MenuPage::Vehicle);
     SubmenuButton("Network", MenuPage::Network);
-    SubmenuButton("Online Sessions", MenuPage::OnlineSessions);
     SubmenuButton("Miscellaneous", MenuPage::Misc);
     ImGui::Spacing();
     SubmenuButton("Settings", MenuPage::Settings);
@@ -681,6 +680,10 @@ void Menu::RenderNetwork() {
     RenderInfoCard(
         "Network options are local interface preferences and diagnostics "
         "placeholders. This standalone build does not contact a server.");
+
+    SubmenuButton("Online Sessions", MenuPage::OnlineSessions);
+    ImGui::Spacing();
+    ImGui::SeparatorText("Network Diagnostics");
     RenderFeatureCategory("Network");
 
     if (ImGui::Button("Refresh Network Status", {-1.0F, 40.0F})) {
