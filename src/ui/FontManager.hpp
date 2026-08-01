@@ -26,6 +26,7 @@ public:
     void Initialize(const std::filesystem::path& customFontsDirectory);
     bool Select(std::string_view id);
     void SetScale(float scale);
+    void SyncFromImGui();
 
     [[nodiscard]] const std::vector<FontEntry>& Fonts() const noexcept;
     [[nodiscard]] std::string_view Current() const noexcept;

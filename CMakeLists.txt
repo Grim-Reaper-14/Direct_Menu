@@ -109,6 +109,7 @@ add_executable(Direct_Menu WIN32
     src/backend/D3D12Backend.cpp
     src/config/ConfigManager.cpp
     src/core/Application.cpp
+    src/core/ImGuiStyleSettings.cpp
     src/core/TaskQueue.cpp
     src/features/FeatureRegistry.cpp
     src/filesystem/FileSystemManager.cpp
@@ -213,6 +214,15 @@ if(BUILD_TESTING)
     target_include_directories(LoggerSmoke PRIVATE src)
     target_compile_features(LoggerSmoke PRIVATE cxx_std_20)
     add_test(NAME LoggerSmoke COMMAND LoggerSmoke)
+
+    add_executable(ImGuiStyleSettingsSmoke
+        tests/ImGuiStyleSettingsSmoke.cpp
+        src/core/ImGuiStyleSettings.cpp
+    )
+    target_include_directories(ImGuiStyleSettingsSmoke PRIVATE src)
+    target_compile_features(ImGuiStyleSettingsSmoke PRIVATE cxx_std_20)
+    target_link_libraries(ImGuiStyleSettingsSmoke PRIVATE imgui)
+    add_test(NAME ImGuiStyleSettingsSmoke COMMAND ImGuiStyleSettingsSmoke)
 
     add_executable(LuaScriptsManagerSmoke
         tests/LuaScriptsManagerSmoke.cpp

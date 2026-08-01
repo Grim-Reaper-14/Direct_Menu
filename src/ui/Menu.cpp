@@ -91,6 +91,20 @@ Menu::Menu(
       settings_(settings),
       callbacks_(std::move(callbacks)) {
     RefreshConfigurationNames();
+
+    const std::string startupConfiguration = configs_.StartupConfiguration();
+    if (std::ranges::find(configurationNames_, startupConfiguration) !=
+        configurationNames_.end()) {
+        CopyToBuffer(configurationName_, startupConfiguration);
+        std::string error;
+        if (configs_.Load(
+                startupConfiguration,
+                settings_,
+                features_,
+                error)) {
+            ApplyLoadedSettings();
+        }
+    }
 }
 
 void Menu::RenderWelcome() {
@@ -759,11 +773,35 @@ void Menu::RenderSettings() {
 
 void Menu::RenderStyleEditor() {
     RenderInfoCard(
-        "Edit the active Dear ImGui style live. Changes remain active for "
-        "this run; use a named theme or restart the app to restore defaults.");
+        "Edit the active Dear ImGui style live. Save Current Style writes all "
+        "style values and colors into the selected configuration.");
+
+    if (ImGui::Button("Save Current Style", {-1.0F, 40.0F})) {
+        fonts_.SyncFromImGui();
+        settings_.theme = std::string{themes_.Current()};
+        settings_.font = std::string{fonts_.Current()};
+        settings_.fontScale = fonts_.Scale();
+        settings_.imguiStyle.Capture(ImGui::GetStyle());
+        std::string error;
+        if (configs_.Save(
+                configurationName_.data(),
+                settings_,
+                features_,
+                error)) {
+            RefreshConfigurationNames();
+            notifications_.Push(
+                std::format(
+                    "ImGui style saved to '{}'.",
+                    configurationName_.data()),
+                NotificationKind::Success);
+        } else {
+            notifications_.Push(error, NotificationKind::Error, 5.0);
+        }
+    }
+    ImGui::Spacing();
 
     ImGui::PushID("DirectMenuStyleEditor");
-    ImGui::ShowStyleEditor(&ImGui::GetStyle());
+    ImGui::ShowStyleEditor();
     ImGui::PopID();
 }
 
@@ -1047,7 +1085,7 @@ void Menu::RenderFonts() {
 
     ImGui::Spacing();
     float scale = fonts_.Scale();
-    if (ImGui::SliderFloat("Live Font Scale", &scale, 0.75F, 1.50F, "%.2f")) {
+    if (ImGui::SliderFloat("Live Font Scale", &scale, 0.30F, 2.00F, "%.2f")) {
         fonts_.SetScale(scale);
         settings_.fontScale = fonts_.Scale();
     }
@@ -1059,8 +1097,8 @@ void Menu::RenderFonts() {
 
 void Menu::RenderConfigurations() {
     RenderInfoCard(
-        "Configurations save the selected theme, font, image path, and every "
-        "registered feature value.");
+        "Configurations save the complete ImGui style, selected theme, font, "
+        "image path, and every registered feature value.");
 
     ImGui::InputText(
         "Config Name",
@@ -1078,9 +1116,11 @@ void Menu::RenderConfigurations() {
     }
 
     if (ImGui::Button("Save Settings", {-1.0F, 40.0F})) {
+        fonts_.SyncFromImGui();
         settings_.theme = std::string{themes_.Current()};
         settings_.font = std::string{fonts_.Current()};
         settings_.fontScale = fonts_.Scale();
+        settings_.imguiStyle.Capture(ImGui::GetStyle());
         if (images_.HasImage()) {
             settings_.imagePath =
                 filesystem::FileSystemManager::ToUtf8(images_.Path().wstring());
@@ -1126,6 +1166,7 @@ void Menu::ApplyLoadedSettings() {
         settings_.theme = "Midnight";
         themes_.Apply(settings_.theme);
     }
+    settings_.imguiStyle.Apply(ImGui::GetStyle());
 
     if (!fonts_.Select(settings_.font)) {
         settings_.font = "Default";

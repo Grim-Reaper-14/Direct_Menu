@@ -65,8 +65,21 @@ bool FontManager::Select(const std::string_view id) {
 }
 
 void FontManager::SetScale(const float scale) {
-    scale_ = std::clamp(scale, 0.75F, 1.50F);
+    scale_ = std::clamp(scale, 0.30F, 2.00F);
     ImGui::GetIO().FontGlobalScale = scale_;
+}
+
+void FontManager::SyncFromImGui() {
+    ImGuiIO& io = ImGui::GetIO();
+    const auto found = std::ranges::find_if(
+        fonts_,
+        [&io](const FontEntry& entry) {
+            return entry.font == io.FontDefault;
+        });
+    if (found != fonts_.end()) {
+        current_ = found->id;
+    }
+    SetScale(io.FontGlobalScale);
 }
 
 const std::vector<FontEntry>& FontManager::Fonts() const noexcept {
