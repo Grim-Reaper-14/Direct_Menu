@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <format>
+#include <utility>
 
 namespace smf::scripting {
 
