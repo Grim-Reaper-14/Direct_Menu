@@ -1,6 +1,7 @@
 #include "filesystem/FileSystemManager.hpp"
 
 #include <ShlObj.h>
+#include <shellapi.h>
 #include <commdlg.h>
 
 #include <algorithm>
@@ -125,6 +126,19 @@ std::optional<std::filesystem::path> FileSystemManager::OpenImageDialog(const HW
     }
 
     return std::filesystem::path{pathBuffer.data()};
+}
+
+bool FileSystemManager::OpenFolder(
+    const HWND owner,
+    const std::filesystem::path& folder) const {
+    const HINSTANCE result = ShellExecuteW(
+        owner,
+        L"open",
+        folder.c_str(),
+        nullptr,
+        nullptr,
+        SW_SHOWNORMAL);
+    return reinterpret_cast<INT_PTR>(result) > 32;
 }
 
 std::string FileSystemManager::SanitizeFileStem(const std::string_view value) {

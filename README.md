@@ -33,7 +33,7 @@ Requirements:
 - Windows 10 or Windows 11
 - Visual Studio 2022 with **Desktop development with C++**
 - CMake 3.24 or newer
-- Git, used by CMake to download the pinned Dear ImGui dependency
+- Git, used by CMake to download the pinned Dear ImGui, Lua 5.4, and sol2 dependencies
 
 The easiest method is to double-click `build_windows.bat`.
 
@@ -45,8 +45,8 @@ cmake --build --preset windows-release
 .\build\Release\Direct_Menu.exe
 ```
 
-The first configure downloads Dear ImGui `v1.91.9b`. Later builds reuse the
-downloaded dependency.
+The first configure downloads Dear ImGui `v1.91.9b`, Lua `v5.4.7`, and sol2
+`v3.3.1`. Later builds reuse the downloaded dependencies.
 
 If the project is pushed to GitHub, the included **Windows Build** workflow can
 compile it from a phone or browser. Run the workflow, then download the
@@ -68,6 +68,14 @@ On first launch the framework creates:
 `F5` only changes visibility. Use **Settings > Exit Menu** to terminate the
 program.
 
+The **Settings > Lua** page can refresh the script folder, open it in File
+Explorer, load/unload/reload individual scripts, reload all active scripts,
+and show protected runtime errors. Scripts auto-load by default and loaded
+files hot-reload when they change on disk. A script can expose UI metadata
+with globals such as `SCRIPT_AUTHOR`, `SCRIPT_VERSION`, and
+`SCRIPT_DESCRIPTION`, or with a `SCRIPT_METADATA` table containing `author`,
+`version`, and `description` fields.
+
 ## Project structure
 
 ```text
@@ -78,7 +86,7 @@ src/
 ├── features/     Typed feature registry shared by UI/configs/future Lua
 ├── filesystem/   Runtime directories and file dialogs
 ├── logging/      Thread-safe logger API
-├── scripting/    Lua integration boundary (runtime intentionally deferred)
+├── scripting/    Lua 5.4 runtime, lifecycle, bindings, events, timers, and UI
 └── ui/           Menu, themes, fonts, notifications, and image loading
 ```
 

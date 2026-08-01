@@ -8,6 +8,20 @@
 #include <utility>
 
 namespace smf::scripting {
+namespace {
+
+std::string ReadString(const sol::object& value) {
+    if (!value.valid() || value.get_type() != sol::type::string) {
+        return {};
+    }
+    return value.as<std::string>();
+}
+
+std::string ReadTableString(const sol::table& table, const char* key) {
+    return ReadString(table[key]);
+}
+
+} // namespace
 
 LuaScriptsManager::LuaScriptsManager(
     logging::LoggerApi& logger,
@@ -72,6 +86,22 @@ void LuaScriptsManager::Refresh() {
         return left.name < right.name;
     });
 
+    std::vector<std::string> removedLoadedScripts;
+    for (const ScriptRecord& current : scripts_) {
+        const bool stillExists = std::ranges::any_of(
+            discovered,
+            [&current](const ScriptRecord& candidate) {
+                return candidate.name == current.name;
+            });
+        if (current.loaded && !stillExists) {
+            removedLoadedScripts.push_back(current.name);
+        }
+    }
+
+    for (const std::string& name : removedLoadedScripts) {
+        (void)Unload(name);
+    }
+
     scripts_ = std::move(discovered);
 }
 
@@ -108,7 +138,7 @@ void LuaScriptsManager::Update() {
 
     for (const std::string& name : changedScripts) {
         logger_.Info("Lua script changed on disk; hot reloading: " + name);
-        Reload(name);
+        (void)Reload(name);
     }
 }
 
@@ -145,7 +175,15 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
     }
 
     sol::protected_function function = loaded;
-    function.set_environment(environment);
+    if (!sol::set_environment(environment, function)) {
+        ownerChanged_(std::string_view{});
+        script.loaded = false;
+        script.lastError = "The script environment could not be attached.";
+        logger_.Error(std::format(
+            "Lua environment setup failed for '{}'.",
+            script.name));
+        return false;
+    }
     const sol::protected_function_result result = function();
     ownerChanged_(std::string_view{});
 
@@ -158,6 +196,7 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
         return false;
     }
 
+    ReadMetadata(script, environment);
     runtimeScripts_.insert_or_assign(
         script.name,
         RuntimeScript{.environment = std::move(environment)});
@@ -166,6 +205,30 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
     RememberWriteTime(script);
     logger_.Info("Lua script loaded: " + script.name);
     return true;
+}
+
+void LuaScriptsManager::ReadMetadata(
+    ScriptRecord& script,
+    const sol::environment& environment) {
+    script.author = ReadString(environment["SCRIPT_AUTHOR"]);
+    script.version = ReadString(environment["SCRIPT_VERSION"]);
+    script.description = ReadString(environment["SCRIPT_DESCRIPTION"]);
+
+    const sol::object metadataObject = environment["SCRIPT_METADATA"];
+    if (!metadataObject.valid() || metadataObject.get_type() != sol::type::table) {
+        return;
+    }
+
+    const sol::table metadata = metadataObject.as<sol::table>();
+    if (script.author.empty()) {
+        script.author = ReadTableString(metadata, "author");
+    }
+    if (script.version.empty()) {
+        script.version = ReadTableString(metadata, "version");
+    }
+    if (script.description.empty()) {
+        script.description = ReadTableString(metadata, "description");
+    }
 }
 
 void LuaScriptsManager::RememberWriteTime(const ScriptRecord& script) {
@@ -220,9 +283,26 @@ bool LuaScriptsManager::Reload(const std::string_view name) {
     }
 
     if (script->loaded) {
-        Unload(name);
+        (void)Unload(name);
     }
     return Load(name);
+}
+
+std::size_t LuaScriptsManager::ReloadAll() {
+    std::vector<std::string> loadedScripts;
+    for (const ScriptRecord& script : scripts_) {
+        if (script.loaded) {
+            loadedScripts.push_back(script.name);
+        }
+    }
+
+    std::size_t reloaded = 0;
+    for (const std::string& name : loadedScripts) {
+        if (Reload(name)) {
+            ++reloaded;
+        }
+    }
+    return reloaded;
 }
 
 void LuaScriptsManager::UnloadAll() {
@@ -234,7 +314,7 @@ void LuaScriptsManager::UnloadAll() {
     }
 
     for (const std::string& name : loaded) {
-        Unload(name);
+        (void)Unload(name);
     }
     runtimeScripts_.clear();
     writeTimes_.clear();

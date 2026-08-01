@@ -24,6 +24,9 @@ public:
     [[nodiscard]] std::filesystem::path ConfigurationPath(std::string_view name) const;
     [[nodiscard]] std::vector<std::string> ConfigurationNames() const;
     [[nodiscard]] std::optional<std::filesystem::path> OpenImageDialog(HWND owner) const;
+    [[nodiscard]] bool OpenFolder(
+        HWND owner,
+        const std::filesystem::path& folder) const;
 
     [[nodiscard]] static std::string SanitizeFileStem(std::string_view value);
     [[nodiscard]] static std::string ToUtf8(const std::wstring& value);

@@ -170,13 +170,13 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
             logger_.Critical(renderError);
             const std::filesystem::path logPath =
                 fileSystem_.Logs() / L"latest.log";
-            const std::wstring message =
+            const std::wstring dialogMessage =
                 L"Direct3D 12 rendering failed.\n\n" +
                 filesystem::FileSystemManager::ToWide(renderError) +
                 L"\n\nLog file:\n" + logPath.wstring();
             MessageBoxW(
                 window_,
-                message.c_str(),
+                dialogMessage.c_str(),
                 WindowTitle,
                 MB_OK | MB_ICONERROR);
             done = true;

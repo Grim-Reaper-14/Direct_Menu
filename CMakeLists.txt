@@ -30,10 +30,7 @@ FetchContent_Declare(
     GIT_TAG v5.4.7
     GIT_SHALLOW TRUE
 )
-FetchContent_GetProperties(lua)
-if(NOT lua_POPULATED)
-    FetchContent_Populate(lua)
-endif()
+FetchContent_MakeAvailable(lua)
 
 FetchContent_Declare(
     sol2
@@ -78,7 +75,6 @@ add_library(lua_static STATIC
     "${lua_SOURCE_DIR}/lzio.c"
 )
 target_include_directories(lua_static PUBLIC "${lua_SOURCE_DIR}")
-target_compile_definitions(lua_static PRIVATE LUA_USE_WINDOWS)
 set_target_properties(lua_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_library(imgui STATIC
@@ -197,4 +193,14 @@ if(BUILD_TESTING)
     target_include_directories(TaskQueueSmoke PRIVATE src)
     target_compile_features(TaskQueueSmoke PRIVATE cxx_std_20)
     add_test(NAME TaskQueueSmoke COMMAND TaskQueueSmoke)
+
+    add_executable(LuaScriptsManagerSmoke
+        tests/LuaScriptsManagerSmoke.cpp
+        src/logging/Logger.cpp
+        src/scripting/LuaScriptsManager.cpp
+    )
+    target_include_directories(LuaScriptsManagerSmoke PRIVATE src)
+    target_compile_features(LuaScriptsManagerSmoke PRIVATE cxx_std_20)
+    target_link_libraries(LuaScriptsManagerSmoke PRIVATE lua_static sol2::sol2)
+    add_test(NAME LuaScriptsManagerSmoke COMMAND LuaScriptsManagerSmoke)
 endif()

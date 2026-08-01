@@ -47,7 +47,7 @@ void LuaManager::Initialize(std::filesystem::path scriptsDirectory) {
 
     for (const ScriptRecord& script : scripts_.Scripts()) {
         if (script.enabled && script.autoLoad) {
-            scripts_.Load(script.name);
+            (void)scripts_.Load(script.name);
         }
     }
 
@@ -145,7 +145,7 @@ void LuaManager::Refresh() {
     scripts_.Refresh();
     for (const ScriptRecord& script : scripts_.Scripts()) {
         if (script.enabled && script.autoLoad && !script.loaded) {
-            scripts_.Load(script.name);
+            (void)scripts_.Load(script.name);
         }
     }
 }

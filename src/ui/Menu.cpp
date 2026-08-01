@@ -655,27 +655,149 @@ void Menu::RenderSettings() {
 void Menu::RenderLua() {
     RenderInfoCard(lua_.StatusText());
 
-    if (ImGui::Button("Refresh Script Folder", {-1.0F, 38.0F})) {
-        lua_.Refresh();
-        notifications_.Push("Lua script list refreshed.", NotificationKind::Success);
-    }
-
-    ImGui::Spacing();
-    ImGui::TextDisabled("Detected .lua files");
-    if (lua_.Scripts().empty()) {
-        ImGui::TextWrapped(
-            "No scripts found. Files can be placed in the LuaScripts runtime "
-            "folder, but execution stays disabled until bindings are added.");
-    } else {
-        for (const auto& script : lua_.Scripts()) {
-            ImGui::BulletText("%s", script.name.c_str());
+    if (ImGui::Button("Open LuaScripts Folder", {-1.0F, 38.0F})) {
+        if (!fileSystem_.OpenFolder(window_, fileSystem_.LuaScripts())) {
+            notifications_.Push(
+                "The LuaScripts folder could not be opened.",
+                NotificationKind::Error);
         }
     }
 
-    ImGui::Spacing();
-    ImGui::BeginDisabled();
-    ImGui::Button("Load Selected Script (Runtime Deferred)", {-1.0F, 38.0F});
+    const float toolbarWidth =
+        (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5F;
+    if (ImGui::Button("Refresh", {toolbarWidth, 38.0F})) {
+        lua_.Refresh();
+        notifications_.Push("Lua script list refreshed.", NotificationKind::Success);
+    }
+    ImGui::SameLine();
+
+    const std::size_t loadedCount = std::ranges::count_if(
+        lua_.Scripts(),
+        [](const scripting::ScriptRecord& script) { return script.loaded; });
+    ImGui::BeginDisabled(loadedCount == 0);
+    if (ImGui::Button("Reload All", {-1.0F, 38.0F})) {
+        const std::size_t reloaded = lua_.ScriptsManager().ReloadAll();
+        if (reloaded == loadedCount) {
+            notifications_.Push(
+                std::format("Reloaded {} Lua script(s).", reloaded),
+                NotificationKind::Success);
+        } else {
+            notifications_.Push(
+                std::format(
+                    "Reloaded {} of {} Lua script(s); review the errors below.",
+                    reloaded,
+                    loadedCount),
+                NotificationKind::Warning,
+                5.0);
+        }
+    }
     ImGui::EndDisabled();
+
+    ImGui::Spacing();
+    ImGui::TextDisabled("Detected .lua files (%zu)", lua_.Scripts().size());
+    if (lua_.Scripts().empty()) {
+        ImGui::TextWrapped(
+            "No scripts found. Add .lua files to the LuaScripts folder, then "
+            "select Refresh. New scripts are loaded automatically by default.");
+    } else {
+        for (const auto& script : lua_.Scripts()) {
+            ImGui::PushID(script.name.c_str());
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            const char* status = "Unloaded";
+            ImVec4 statusColor{0.58F, 0.62F, 0.68F, 1.0F};
+            if (script.loaded) {
+                status = "Loaded";
+                statusColor = {0.30F, 0.86F, 0.52F, 1.0F};
+            } else if (!script.lastError.empty()) {
+                status = "Error";
+                statusColor = {0.96F, 0.32F, 0.34F, 1.0F};
+            }
+
+            ImGui::TextColored(statusColor, "%s", status);
+            ImGui::SameLine();
+            ImGui::TextUnformatted(script.name.c_str());
+
+            bool autoLoad = script.autoLoad;
+            if (ImGui::Checkbox("Auto-Load", &autoLoad)) {
+                if (scripting::ScriptRecord* mutableScript =
+                        lua_.ScriptsManager().Find(script.name)) {
+                    mutableScript->autoLoad = autoLoad;
+                }
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(
+                    "Automatically load this script after discovery during "
+                    "the current session.");
+            }
+
+            if (!script.author.empty() || !script.version.empty()) {
+                std::string details;
+                if (!script.author.empty()) {
+                    details = "Author: " + script.author;
+                }
+                if (!script.version.empty()) {
+                    if (!details.empty()) {
+                        details += "  |  ";
+                    }
+                    details += "Version: " + script.version;
+                }
+                ImGui::TextDisabled("%s", details.c_str());
+            }
+            if (!script.description.empty()) {
+                ImGui::TextWrapped("%s", script.description.c_str());
+            }
+
+            if (script.loaded) {
+                const float actionWidth =
+                    (ImGui::GetContentRegionAvail().x -
+                     ImGui::GetStyle().ItemSpacing.x) * 0.5F;
+                if (ImGui::Button("Unload", {actionWidth, 34.0F})) {
+                    if (lua_.ScriptsManager().Unload(script.name)) {
+                        notifications_.Push(
+                            "Unloaded " + script.name + '.',
+                            NotificationKind::Success);
+                    }
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Reload", {-1.0F, 34.0F})) {
+                    if (lua_.ScriptsManager().Reload(script.name)) {
+                        notifications_.Push(
+                            "Reloaded " + script.name + '.',
+                            NotificationKind::Success);
+                    } else {
+                        notifications_.Push(
+                            "Reload failed for " + script.name + '.',
+                            NotificationKind::Error,
+                            5.0);
+                    }
+                }
+            } else if (ImGui::Button("Load", {-1.0F, 34.0F})) {
+                if (lua_.ScriptsManager().Load(script.name)) {
+                    notifications_.Push(
+                        "Loaded " + script.name + '.',
+                        NotificationKind::Success);
+                } else {
+                    notifications_.Push(
+                        "Load failed for " + script.name + '.',
+                        NotificationKind::Error,
+                        5.0);
+                }
+            }
+
+            if (!script.lastError.empty()) {
+                ImGui::PushStyleColor(
+                    ImGuiCol_Text,
+                    ImVec4{0.96F, 0.42F, 0.44F, 1.0F});
+                ImGui::TextWrapped("Error: %s", script.lastError.c_str());
+                ImGui::PopStyleColor();
+            }
+
+            ImGui::Spacing();
+            ImGui::PopID();
+        }
+    }
 }
 
 void Menu::RenderThemes() {

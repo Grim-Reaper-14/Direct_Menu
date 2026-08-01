@@ -3,6 +3,7 @@
 #include <sol/sol.hpp>
 
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -46,6 +47,7 @@ public:
     [[nodiscard]] bool Load(std::string_view name);
     [[nodiscard]] bool Unload(std::string_view name);
     [[nodiscard]] bool Reload(std::string_view name);
+    [[nodiscard]] std::size_t ReloadAll();
     void UnloadAll();
 
     [[nodiscard]] ScriptRecord* Find(std::string_view name) noexcept;
@@ -60,6 +62,7 @@ private:
     };
 
     [[nodiscard]] bool ExecuteScript(ScriptRecord& script);
+    void ReadMetadata(ScriptRecord& script, const sol::environment& environment);
     void InvokeUnload(std::string_view name);
     void RememberWriteTime(const ScriptRecord& script);
 
