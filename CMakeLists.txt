@@ -105,11 +105,24 @@ set_target_properties(Direct_Menu PROPERTIES
 add_custom_command(TARGET Direct_Menu POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory
         "$<TARGET_FILE_DIR:Direct_Menu>/assets"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/assets/direct_menu_neon_background.jpg"
-        "$<TARGET_FILE_DIR:Direct_Menu>/assets/direct_menu_neon_background.jpg"
-    COMMENT "Copying the Direct_Menu neon background"
+    COMMENT "Preparing Direct_Menu assets"
 )
+
+set(DIRECT_MENU_RUNTIME_ASSETS
+    direct_menu_neon_background.jpg
+    direct_menu_background.jpg
+    direct_menu_header.jpg
+)
+
+foreach(asset_name IN LISTS DIRECT_MENU_RUNTIME_ASSETS)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/assets/${asset_name}")
+        add_custom_command(TARGET Direct_Menu POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/assets/${asset_name}"
+                "$<TARGET_FILE_DIR:Direct_Menu>/assets/${asset_name}"
+        )
+    endif()
+endforeach()
 
 include(CTest)
 if(BUILD_TESTING)
