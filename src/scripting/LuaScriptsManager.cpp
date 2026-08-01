@@ -3,13 +3,21 @@
 #include "logging/Logger.hpp"
 
 #include <algorithm>
+#include <format>
 #include <system_error>
 #include <utility>
 
 namespace smf::scripting {
 
-LuaScriptsManager::LuaScriptsManager(logging::LoggerApi& logger)
-    : logger_(logger) {
+LuaScriptsManager::LuaScriptsManager(
+    logging::LoggerApi& logger,
+    sol::state& lua,
+    OwnerChangedCallback ownerChanged,
+    CleanupCallback cleanup)
+    : logger_(logger),
+      lua_(lua),
+      ownerChanged_(std::move(ownerChanged)),
+      cleanup_(std::move(cleanup)) {
 }
 
 void LuaScriptsManager::Initialize(std::filesystem::path scriptsDirectory) {
@@ -59,11 +67,9 @@ void LuaScriptsManager::Refresh() {
         discovered.push_back(std::move(record));
     }
 
-    std::ranges::sort(
-        discovered,
-        [](const ScriptRecord& left, const ScriptRecord& right) {
-            return left.name < right.name;
-        });
+    std::ranges::sort(discovered, [](const ScriptRecord& left, const ScriptRecord& right) {
+        return left.name < right.name;
+    });
 
     scripts_ = std::move(discovered);
 }
@@ -74,13 +80,75 @@ bool LuaScriptsManager::Load(const std::string_view name) {
         return false;
     }
 
-    // The runtime execution hook is intentionally isolated here. Once the
-    // Lua runtime is linked, this is where compilation/environment creation
-    // belongs instead of spreading runtime calls throughout the application.
-    script->loaded = true;
-    script->lastError.clear();
-    logger_.Info("Lua script marked loaded: " + script->name);
+    if (script->loaded) {
+        return true;
+    }
+
+    return ExecuteScript(*script);
+}
+
+bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
+    cleanup_(script.name);
+    runtimeScripts_.erase(script.name);
+
+    sol::environment environment{lua_, sol::create, lua_.globals()};
+    environment["SCRIPT_NAME"] = script.name;
+    environment["SCRIPT_PATH"] = script.path.string();
+
+    ownerChanged_(script.name);
+    const sol::load_result loaded = lua_.load_file(script.path.string());
+    if (!loaded.valid()) {
+        const sol::error error = loaded;
+        ownerChanged_({});
+        script.loaded = false;
+        script.lastError = error.what();
+        logger_.Error(std::format("Lua load failed for '{}': {}", script.name, error.what()));
+        return false;
+    }
+
+    sol::protected_function function = loaded;
+    function.set_environment(environment);
+    const sol::protected_function_result result = function();
+    ownerChanged_({});
+
+    if (!result.valid()) {
+        const sol::error error = result;
+        script.loaded = false;
+        script.lastError = error.what();
+        cleanup_(script.name);
+        logger_.Error(std::format("Lua execution failed for '{}': {}", script.name, error.what()));
+        return false;
+    }
+
+    runtimeScripts_.insert_or_assign(
+        script.name,
+        RuntimeScript{.environment = std::move(environment)});
+    script.loaded = true;
+    script.lastError.clear();
+    logger_.Info("Lua script loaded: " + script.name);
     return true;
+}
+
+void LuaScriptsManager::InvokeUnload(const std::string_view name) {
+    const auto iterator = runtimeScripts_.find(std::string{name});
+    if (iterator == runtimeScripts_.end()) {
+        return;
+    }
+
+    const sol::object unloadObject = iterator->second.environment["on_unload"];
+    if (!unloadObject.valid() || unloadObject.get_type() != sol::type::function) {
+        return;
+    }
+
+    ownerChanged_(name);
+    sol::protected_function unload = unloadObject.as<sol::protected_function>();
+    const sol::protected_function_result result = unload();
+    ownerChanged_({});
+
+    if (!result.valid()) {
+        const sol::error error = result;
+        logger_.Error(std::format("Lua on_unload failed for '{}': {}", name, error.what()));
+    }
 }
 
 bool LuaScriptsManager::Unload(const std::string_view name) {
@@ -89,6 +157,9 @@ bool LuaScriptsManager::Unload(const std::string_view name) {
         return false;
     }
 
+    InvokeUnload(name);
+    cleanup_(name);
+    runtimeScripts_.erase(std::string{name});
     script->loaded = false;
     logger_.Info("Lua script unloaded: " + script->name);
     return true;
@@ -107,29 +178,30 @@ bool LuaScriptsManager::Reload(const std::string_view name) {
 }
 
 void LuaScriptsManager::UnloadAll() {
-    for (ScriptRecord& script : scripts_) {
+    std::vector<std::string> loaded;
+    for (const ScriptRecord& script : scripts_) {
         if (script.loaded) {
-            script.loaded = false;
-            logger_.Debug("Lua script unloaded during shutdown: " + script.name);
+            loaded.push_back(script.name);
         }
     }
+
+    for (const std::string& name : loaded) {
+        Unload(name);
+    }
+    runtimeScripts_.clear();
 }
 
 ScriptRecord* LuaScriptsManager::Find(const std::string_view name) noexcept {
-    const auto it = std::ranges::find_if(
-        scripts_,
-        [name](const ScriptRecord& script) {
-            return script.name == name;
-        });
+    const auto it = std::ranges::find_if(scripts_, [name](const ScriptRecord& script) {
+        return script.name == name;
+    });
     return it == scripts_.end() ? nullptr : &*it;
 }
 
 const ScriptRecord* LuaScriptsManager::Find(const std::string_view name) const noexcept {
-    const auto it = std::ranges::find_if(
-        scripts_,
-        [name](const ScriptRecord& script) {
-            return script.name == name;
-        });
+    const auto it = std::ranges::find_if(scripts_, [name](const ScriptRecord& script) {
+        return script.name == name;
+    });
     return it == scripts_.end() ? nullptr : &*it;
 }
 
