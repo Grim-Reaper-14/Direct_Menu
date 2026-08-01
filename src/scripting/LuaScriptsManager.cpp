@@ -23,6 +23,7 @@ LuaScriptsManager::LuaScriptsManager(
 void LuaScriptsManager::Initialize(std::filesystem::path scriptsDirectory) {
     scriptsDirectory_ = std::move(scriptsDirectory);
     Refresh();
+    nextHotReloadCheck_ = std::chrono::steady_clock::now();
 }
 
 void LuaScriptsManager::Refresh() {
@@ -74,6 +75,43 @@ void LuaScriptsManager::Refresh() {
     scripts_ = std::move(discovered);
 }
 
+void LuaScriptsManager::Update() {
+    const auto now = std::chrono::steady_clock::now();
+    if (now < nextHotReloadCheck_) {
+        return;
+    }
+    nextHotReloadCheck_ = now + std::chrono::milliseconds{500};
+
+    std::vector<std::string> changedScripts;
+    for (const ScriptRecord& script : scripts_) {
+        if (!script.loaded) {
+            continue;
+        }
+
+        std::error_code error;
+        const auto writeTime = std::filesystem::last_write_time(script.path, error);
+        if (error) {
+            continue;
+        }
+
+        const auto iterator = writeTimes_.find(script.name);
+        if (iterator == writeTimes_.end()) {
+            writeTimes_.insert_or_assign(script.name, writeTime);
+            continue;
+        }
+
+        if (iterator->second != writeTime) {
+            iterator->second = writeTime;
+            changedScripts.push_back(script.name);
+        }
+    }
+
+    for (const std::string& name : changedScripts) {
+        logger_.Info("Lua script changed on disk; hot reloading: " + name);
+        Reload(name);
+    }
+}
+
 bool LuaScriptsManager::Load(const std::string_view name) {
     ScriptRecord* script = Find(name);
     if (script == nullptr || !script->enabled) {
@@ -99,7 +137,7 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
     const sol::load_result loaded = lua_.load_file(script.path.string());
     if (!loaded.valid()) {
         const sol::error error = loaded;
-        ownerChanged_({});
+        ownerChanged_(std::string_view{});
         script.loaded = false;
         script.lastError = error.what();
         logger_.Error(std::format("Lua load failed for '{}': {}", script.name, error.what()));
@@ -109,7 +147,7 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
     sol::protected_function function = loaded;
     function.set_environment(environment);
     const sol::protected_function_result result = function();
-    ownerChanged_({});
+    ownerChanged_(std::string_view{});
 
     if (!result.valid()) {
         const sol::error error = result;
@@ -125,8 +163,17 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
         RuntimeScript{.environment = std::move(environment)});
     script.loaded = true;
     script.lastError.clear();
+    RememberWriteTime(script);
     logger_.Info("Lua script loaded: " + script.name);
     return true;
+}
+
+void LuaScriptsManager::RememberWriteTime(const ScriptRecord& script) {
+    std::error_code error;
+    const auto writeTime = std::filesystem::last_write_time(script.path, error);
+    if (!error) {
+        writeTimes_.insert_or_assign(script.name, writeTime);
+    }
 }
 
 void LuaScriptsManager::InvokeUnload(const std::string_view name) {
@@ -143,7 +190,7 @@ void LuaScriptsManager::InvokeUnload(const std::string_view name) {
     ownerChanged_(name);
     sol::protected_function unload = unloadObject.as<sol::protected_function>();
     const sol::protected_function_result result = unload();
-    ownerChanged_({});
+    ownerChanged_(std::string_view{});
 
     if (!result.valid()) {
         const sol::error error = result;
@@ -160,6 +207,7 @@ bool LuaScriptsManager::Unload(const std::string_view name) {
     InvokeUnload(name);
     cleanup_(name);
     runtimeScripts_.erase(std::string{name});
+    writeTimes_.erase(std::string{name});
     script->loaded = false;
     logger_.Info("Lua script unloaded: " + script->name);
     return true;
@@ -189,6 +237,7 @@ void LuaScriptsManager::UnloadAll() {
         Unload(name);
     }
     runtimeScripts_.clear();
+    writeTimes_.clear();
 }
 
 ScriptRecord* LuaScriptsManager::Find(const std::string_view name) noexcept {
