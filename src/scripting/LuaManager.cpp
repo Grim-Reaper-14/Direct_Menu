@@ -8,8 +8,23 @@ namespace smf::scripting {
 
 LuaManager::LuaManager(logging::LoggerApi& logger)
     : logger_(logger),
-      bindings_(logger_, commands_),
-      scripts_(logger_),
+      events_(logger_),
+      timers_(logger_),
+      ui_(logger_),
+      bindings_(
+          logger_,
+          luaState_,
+          commands_,
+          events_,
+          timers_,
+          ui_,
+          [this] { return ActiveScriptName(); },
+          [this] { Refresh(); }),
+      scripts_(
+          logger_,
+          luaState_,
+          [this](const std::string_view owner) { SetActiveScript(owner); },
+          [this](const std::string_view owner) { CleanupOwnedResources(owner); }),
       modules_(*this) {
 }
 
@@ -22,11 +37,31 @@ void LuaManager::Initialize(std::filesystem::path scriptsDirectory) {
         return;
     }
 
+    OpenLibraries();
     scripts_.Initialize(std::move(scriptsDirectory));
     bindings_.RegisterCoreBindings();
     initialized_ = true;
 
-    logger_.Info("Lua subsystem architecture initialized.");
+    logger_.Info("Lua 5.4 runtime and sol2 binding layer initialized.");
+}
+
+void LuaManager::OpenLibraries() {
+    luaState_.open_libraries(
+        sol::lib::base,
+        sol::lib::math,
+        sol::lib::string,
+        sol::lib::table,
+        sol::lib::coroutine,
+        sol::lib::utf8);
+
+    // Keep scripts sandboxed from direct OS/process and arbitrary file access.
+    luaState_["io"] = sol::nil;
+    luaState_["os"] = sol::nil;
+    luaState_["debug"] = sol::nil;
+    luaState_["package"] = sol::nil;
+    luaState_["require"] = sol::nil;
+    luaState_["dofile"] = sol::nil;
+    luaState_["loadfile"] = sol::nil;
 }
 
 void LuaManager::Shutdown() noexcept {
@@ -34,10 +69,15 @@ void LuaManager::Shutdown() noexcept {
         return;
     }
 
-    modules_.Shutdown();
+    events_.Emit("shutdown");
     scripts_.UnloadAll();
+    modules_.Shutdown();
+    timers_.Clear();
+    events_.Clear();
+    ui_.Clear();
+    activeScriptName_.clear();
     initialized_ = false;
-    logger_.Info("Lua subsystem architecture shut down.");
+    logger_.Info("Lua subsystem shut down.");
 }
 
 void LuaManager::Update() {
@@ -45,7 +85,18 @@ void LuaManager::Update() {
         return;
     }
 
+    timers_.Update();
+    events_.Emit("tick");
     modules_.Update();
+}
+
+void LuaManager::Draw() {
+    if (!initialized_) {
+        return;
+    }
+
+    events_.Emit("draw");
+    ui_.Draw();
 }
 
 void LuaManager::Refresh() {
@@ -66,10 +117,25 @@ std::string LuaManager::StatusText() const {
     }
 
     if (!bindings_.Ready()) {
-        return "Lua subsystem initialized; waiting for the native feature registry binding.";
+        return "Lua 5.4 runtime is initialized; waiting for the native feature registry binding.";
     }
 
-    return "Lua managers, command registry, module system, and binding boundary are ready; Lua VM execution remains isolated behind LuaScriptsManager.";
+    return "Lua 5.4 + sol2 runtime ready. Scripts support load/reload/unload, events, timers, commands, and retained ImGui widgets.";
+}
+
+std::string LuaManager::ActiveScriptName() const {
+    return activeScriptName_.empty() ? "__native__" : activeScriptName_;
+}
+
+void LuaManager::SetActiveScript(const std::string_view owner) {
+    activeScriptName_.assign(owner.begin(), owner.end());
+}
+
+void LuaManager::CleanupOwnedResources(const std::string_view owner) {
+    commands_.UnregisterByOwner(owner);
+    events_.RemoveByOwner(owner);
+    timers_.RemoveByOwner(owner);
+    ui_.RemoveByOwner(owner);
 }
 
 void LuaManager::BindFeatureRegistry(features::FeatureRegistry& registry) {
@@ -91,6 +157,22 @@ LuaCommands& LuaManager::Commands() noexcept {
 
 LuaBindingLibrary& LuaManager::Bindings() noexcept {
     return bindings_;
+}
+
+LuaEvents& LuaManager::Events() noexcept {
+    return events_;
+}
+
+LuaTimerManager& LuaManager::Timers() noexcept {
+    return timers_;
+}
+
+LuaUI& LuaManager::UI() noexcept {
+    return ui_;
+}
+
+sol::state& LuaManager::State() noexcept {
+    return luaState_;
 }
 
 } // namespace smf::scripting
