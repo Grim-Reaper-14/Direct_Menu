@@ -1,5 +1,7 @@
 #pragma once
 
+#include "scripting/LuaImGuiBindings.hpp"
+
 #include <sol/sol.hpp>
 
 #include <functional>
@@ -34,6 +36,7 @@ public:
         LuaTimerManager& timers,
         LuaUI& ui,
         OwnerProvider ownerProvider,
+        ImGuiFrameScopeProvider frameScopeProvider,
         RefreshCallback refreshCallback);
 
     void BindFeatureRegistry(features::FeatureRegistry& registry) noexcept;
@@ -47,6 +50,7 @@ private:
     void RegisterEvents();
     void RegisterTimers();
     void RegisterUI();
+    void RegisterImGui();
     void RegisterApplication();
 
     logging::LoggerApi& logger_;
@@ -56,6 +60,7 @@ private:
     LuaTimerManager& timers_;
     LuaUI& ui_;
     OwnerProvider ownerProvider_;
+    ImGuiFrameScopeProvider frameScopeProvider_;
     RefreshCallback refreshCallback_;
     features::FeatureRegistry* registry_{nullptr};
     bool ready_{false};

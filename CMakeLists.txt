@@ -113,6 +113,7 @@ add_executable(Direct_Menu WIN32
     src/scripting/LuaBindingLibrary.cpp
     src/scripting/LuaCommands.cpp
     src/scripting/LuaEvents.cpp
+    src/scripting/LuaImGuiBindings.cpp
     src/scripting/LuaManager.cpp
     src/scripting/LuaModule.cpp
     src/scripting/LuaModuleManager.cpp
@@ -203,4 +204,21 @@ if(BUILD_TESTING)
     target_compile_features(LuaScriptsManagerSmoke PRIVATE cxx_std_20)
     target_link_libraries(LuaScriptsManagerSmoke PRIVATE lua_static sol2::sol2)
     add_test(NAME LuaScriptsManagerSmoke COMMAND LuaScriptsManagerSmoke)
+
+    add_executable(LuaImGuiBindingsSmoke
+        tests/LuaImGuiBindingsSmoke.cpp
+        src/logging/Logger.cpp
+        src/scripting/LuaBindingLibrary.cpp
+        src/scripting/LuaCommands.cpp
+        src/scripting/LuaEvents.cpp
+        src/scripting/LuaImGuiBindings.cpp
+        src/scripting/LuaTimerManager.cpp
+        src/scripting/LuaUI.cpp
+    )
+    target_include_directories(LuaImGuiBindingsSmoke PRIVATE src)
+    target_compile_features(LuaImGuiBindingsSmoke PRIVATE cxx_std_20)
+    target_link_libraries(
+        LuaImGuiBindingsSmoke
+        PRIVATE imgui lua_static sol2::sol2)
+    add_test(NAME LuaImGuiBindingsSmoke COMMAND LuaImGuiBindingsSmoke)
 endif()

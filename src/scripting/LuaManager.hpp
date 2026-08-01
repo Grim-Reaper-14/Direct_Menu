@@ -72,6 +72,7 @@ private:
     LuaModuleManager modules_;
     std::string activeScriptName_;
     unsigned int imguiHookId_{0};
+    bool drawingFrame_{false};
     bool initialized_{false};
 };
 

@@ -22,6 +22,7 @@ LuaBindingLibrary::LuaBindingLibrary(
     LuaTimerManager& timers,
     LuaUI& ui,
     OwnerProvider ownerProvider,
+    ImGuiFrameScopeProvider frameScopeProvider,
     RefreshCallback refreshCallback)
     : logger_(logger),
       lua_(lua),
@@ -30,6 +31,7 @@ LuaBindingLibrary::LuaBindingLibrary(
       timers_(timers),
       ui_(ui),
       ownerProvider_(std::move(ownerProvider)),
+      frameScopeProvider_(std::move(frameScopeProvider)),
       refreshCallback_(std::move(refreshCallback)) {
 }
 
@@ -47,6 +49,7 @@ void LuaBindingLibrary::RegisterCoreBindings() {
     RegisterEvents();
     RegisterTimers();
     RegisterUI();
+    RegisterImGui();
     RegisterApplication();
 
     lua_["LUA_API_VERSION"] = "1.0.0";
@@ -139,6 +142,10 @@ void LuaBindingLibrary::RegisterUI() {
     ui.set_function("remove", [this](const std::uint64_t id) {
         return ui_.Remove(id);
     });
+}
+
+void LuaBindingLibrary::RegisterImGui() {
+    RegisterLuaImGuiBindings(logger_, lua_, frameScopeProvider_);
 }
 
 void LuaBindingLibrary::RegisterApplication() {

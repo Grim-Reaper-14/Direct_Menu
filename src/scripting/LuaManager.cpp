@@ -22,6 +22,7 @@ LuaManager::LuaManager(logging::LoggerApi& logger)
           timers_,
           ui_,
           [this] { return ActiveScriptName(); },
+          [this] { return drawingFrame_; },
           [this] { Refresh(); }),
       scripts_(
           logger_,
@@ -137,8 +138,10 @@ void LuaManager::Draw() {
         return;
     }
 
+    drawingFrame_ = true;
     events_.Emit("draw");
     ui_.Draw();
+    drawingFrame_ = false;
 }
 
 void LuaManager::Refresh() {
