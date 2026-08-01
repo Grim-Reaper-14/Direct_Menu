@@ -56,6 +56,8 @@ public:
 
 private:
     void OpenLibraries();
+    void InstallFrameHook();
+    void RemoveFrameHook() noexcept;
     void SetActiveScript(std::string_view owner);
     void CleanupOwnedResources(std::string_view owner);
 
@@ -69,6 +71,7 @@ private:
     LuaScriptsManager scripts_;
     LuaModuleManager modules_;
     std::string activeScriptName_;
+    unsigned int imguiHookId_{0};
     bool initialized_{false};
 };
 
