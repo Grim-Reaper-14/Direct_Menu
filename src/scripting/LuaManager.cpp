@@ -2,6 +2,9 @@
 
 #include "logging/Logger.hpp"
 
+#include <imgui.h>
+#include <imgui_internal.h>
+
 #include <utility>
 
 namespace smf::scripting {
@@ -41,6 +44,7 @@ void LuaManager::Initialize(std::filesystem::path scriptsDirectory) {
     scripts_.Initialize(std::move(scriptsDirectory));
     bindings_.RegisterCoreBindings();
     initialized_ = true;
+    InstallFrameHook();
 
     logger_.Info("Lua 5.4 runtime and sol2 binding layer initialized.");
 }
@@ -54,7 +58,6 @@ void LuaManager::OpenLibraries() {
         sol::lib::coroutine,
         sol::lib::utf8);
 
-    // Keep scripts sandboxed from direct OS/process and arbitrary file access.
     luaState_["io"] = sol::nil;
     luaState_["os"] = sol::nil;
     luaState_["debug"] = sol::nil;
@@ -64,11 +67,43 @@ void LuaManager::OpenLibraries() {
     luaState_["loadfile"] = sol::nil;
 }
 
+void LuaManager::InstallFrameHook() {
+    if (imguiHookId_ != 0 || ImGui::GetCurrentContext() == nullptr) {
+        return;
+    }
+
+    ImGuiContextHook hook{};
+    hook.Type = ImGuiContextHookType_NewFramePost;
+    hook.UserData = this;
+    hook.Callback = [](ImGuiContext*, ImGuiContextHook* contextHook) {
+        auto* manager = static_cast<LuaManager*>(contextHook->UserData);
+        if (manager == nullptr) {
+            return;
+        }
+        manager->Update();
+        manager->Draw();
+    };
+
+    imguiHookId_ = ImGui::AddContextHook(ImGui::GetCurrentContext(), &hook);
+    logger_.Debug("Lua per-frame ImGui hook installed.");
+}
+
+void LuaManager::RemoveFrameHook() noexcept {
+    if (imguiHookId_ == 0 || ImGui::GetCurrentContext() == nullptr) {
+        imguiHookId_ = 0;
+        return;
+    }
+
+    ImGui::RemoveContextHook(ImGui::GetCurrentContext(), imguiHookId_);
+    imguiHookId_ = 0;
+}
+
 void LuaManager::Shutdown() noexcept {
     if (!initialized_) {
         return;
     }
 
+    RemoveFrameHook();
     events_.Emit("shutdown");
     scripts_.UnloadAll();
     modules_.Shutdown();
