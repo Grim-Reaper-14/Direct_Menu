@@ -44,8 +44,14 @@ void LuaManager::Initialize(std::filesystem::path scriptsDirectory) {
     scripts_.Initialize(std::move(scriptsDirectory));
     bindings_.RegisterCoreBindings();
     initialized_ = true;
-    InstallFrameHook();
 
+    for (const ScriptRecord& script : scripts_.Scripts()) {
+        if (script.enabled && script.autoLoad) {
+            scripts_.Load(script.name);
+        }
+    }
+
+    InstallFrameHook();
     logger_.Info("Lua 5.4 runtime and sol2 binding layer initialized.");
 }
 
@@ -120,6 +126,7 @@ void LuaManager::Update() {
         return;
     }
 
+    scripts_.Update();
     timers_.Update();
     events_.Emit("tick");
     modules_.Update();
@@ -136,6 +143,11 @@ void LuaManager::Draw() {
 
 void LuaManager::Refresh() {
     scripts_.Refresh();
+    for (const ScriptRecord& script : scripts_.Scripts()) {
+        if (script.enabled && script.autoLoad && !script.loaded) {
+            scripts_.Load(script.name);
+        }
+    }
 }
 
 const std::vector<ScriptRecord>& LuaManager::Scripts() const noexcept {
@@ -155,7 +167,7 @@ std::string LuaManager::StatusText() const {
         return "Lua 5.4 runtime is initialized; waiting for the native feature registry binding.";
     }
 
-    return "Lua 5.4 + sol2 runtime ready. Scripts support load/reload/unload, events, timers, commands, and retained ImGui widgets.";
+    return "Lua 5.4 + sol2 runtime ready. Scripts autoload, hot reload on file changes, and support events, timers, commands, and retained ImGui widgets.";
 }
 
 std::string LuaManager::ActiveScriptName() const {
