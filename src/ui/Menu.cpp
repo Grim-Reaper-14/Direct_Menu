@@ -61,6 +61,19 @@ ImU32 WithAlpha(const ImVec4 color, const float alpha) {
         {color.x, color.y, color.z, alpha});
 }
 
+ImU32 ThemeImageTint(
+    const ImVec4 accent,
+    const float alpha,
+    const float strength) {
+    const float neutral = 1.0F - strength;
+    return ImGui::ColorConvertFloat4ToU32({
+        neutral + accent.x * strength,
+        neutral + accent.y * strength,
+        neutral + accent.z * strength,
+        alpha
+    });
+}
+
 } // namespace
 
 Menu::Menu(
@@ -71,6 +84,8 @@ Menu::Menu(
     const filesystem::FileSystemManager& fileSystem,
     scripting::LuaManager& lua,
     FontManager& fonts,
+    ImageLoader& brandBackground,
+    ImageLoader& brandHeader,
     ImageLoader& images,
     NotificationCenter& notifications,
     ThemeManager& themes,
@@ -83,6 +98,8 @@ Menu::Menu(
       fileSystem_(fileSystem),
       lua_(lua),
       fonts_(fonts),
+      brandBackground_(brandBackground),
+      brandHeader_(brandHeader),
       images_(images),
       notifications_(notifications),
       themes_(themes),
@@ -103,17 +120,28 @@ void Menu::RenderWelcome() {
 
     DrawAppliedBackground();
 
-    constexpr ImVec2 panelSize{410.0F, 440.0F};
+    constexpr ImVec2 panelSize{430.0F, 560.0F};
     const ImVec2 available = ImGui::GetContentRegionAvail();
     ImGui::SetCursorPos({
         std::max((available.x - panelSize.x) * 0.5F, 0.0F),
         std::max((available.y - panelSize.y) * 0.5F, 0.0F)
     });
 
+    const ImVec4 accent = themes_.Accent();
+    ImGui::PushStyleColor(
+        ImGuiCol_ChildBg,
+        ImVec4{
+            accent.x * 0.035F,
+            accent.y * 0.035F,
+            accent.z * 0.035F,
+            0.90F});
+    ImGui::PushStyleColor(
+        ImGuiCol_Border,
+        ImVec4{accent.x, accent.y, accent.z, 0.62F});
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 12.0F);
     ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0F);
     if (ImGui::BeginChild("##welcome_panel", panelSize, true)) {
-        ImGui::Dummy({0.0F, 18.0F});
+        ImGui::Dummy({0.0F, 8.0F});
         DrawNeonHeader();
 
         ImGui::TextDisabled("Direct3D 12 / C++20 / Dear ImGui");
@@ -127,11 +155,11 @@ void Menu::RenderWelcome() {
         ImGui::Spacing();
 
         ImGui::BulletText("F5 hides and reopens the running menu");
-        ImGui::BulletText("Settings, themes, fonts, images, and configs included");
+        ImGui::BulletText("Themes recolor the menu and Reaper artwork live");
+        ImGui::BulletText("Settings, fonts, images, and configs included");
         ImGui::BulletText("Feature pages are safe UI placeholders");
-        ImGui::BulletText("Lua runtime is intentionally added last");
 
-        ImGui::Dummy({0.0F, 24.0F});
+        ImGui::Dummy({0.0F, 20.0F});
         if (ImGui::Button("Open Menu", {-1.0F, 44.0F})) {
             welcomeComplete_ = true;
             notifications_.Push(
@@ -140,14 +168,20 @@ void Menu::RenderWelcome() {
         }
 
         ImGui::Spacing();
-        ImGui::PushStyleColor(ImGuiCol_Button, {0.42F, 0.10F, 0.12F, 1.0F});
+        ImGui::PushStyleColor(
+            ImGuiCol_Button,
+            ImVec4{accent.x, accent.y, accent.z, 0.24F});
+        ImGui::PushStyleColor(
+            ImGuiCol_ButtonHovered,
+            ImVec4{accent.x, accent.y, accent.z, 0.52F});
         if (ImGui::Button("Exit", {-1.0F, 36.0F}) && callbacks_.requestExit) {
             callbacks_.requestExit();
         }
-        ImGui::PopStyleColor();
+        ImGui::PopStyleColor(2);
     }
     ImGui::EndChild();
     ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(2);
     ImGui::End();
 }
 
@@ -167,9 +201,7 @@ void Menu::RenderMain() {
         return;
     }
 
-
     DrawAppliedBackground();
-
     DrawNeonHeader();
 
     const char* hotkeyLabel = "F5  HIDE";
@@ -189,7 +221,12 @@ void Menu::RenderMain() {
         }
         ImGui::SameLine();
     }
-    ImGui::TextUnformatted(PageTitle(CurrentPage()).data());
+    const std::string_view pageTitle = PageTitle(CurrentPage());
+    ImGui::TextColored(
+        themes_.Accent(),
+        "%.*s",
+        static_cast<int>(pageTitle.size()),
+        pageTitle.data());
     ImGui::Spacing();
 
     const float footerHeight = ImGui::GetFrameHeightWithSpacing() + 16.0F;
@@ -312,11 +349,22 @@ bool Menu::SubmenuButton(const std::string_view label, const MenuPage target) {
 }
 
 void Menu::DrawAppliedBackground() const {
-    if (!settings_.imageBackgroundEnabled || !images_.HasImage()) {
+    if (!settings_.imageBackgroundEnabled) {
         return;
     }
 
-    const auto& texture = images_.Texture();
+    const ImageLoader* source = nullptr;
+    if (images_.HasImage()) {
+        source = &images_;
+    } else if (brandBackground_.HasImage()) {
+        source = &brandBackground_;
+    }
+
+    if (source == nullptr) {
+        return;
+    }
+
+    const auto& texture = source->Texture();
     const ImVec2 position = ImGui::GetWindowPos();
     const ImVec2 size = ImGui::GetWindowSize();
     if (size.x <= 0.0F || size.y <= 0.0F ||
@@ -339,6 +387,7 @@ void Menu::DrawAppliedBackground() const {
         uv1.y = 1.0F - uv0.y;
     }
 
+    const ImVec4 accent = themes_.Accent();
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     drawList->AddImage(
         static_cast<ImTextureID>(texture.gpuDescriptor.ptr),
@@ -346,20 +395,76 @@ void Menu::DrawAppliedBackground() const {
         {position.x + size.x, position.y + size.y},
         uv0,
         uv1,
-        IM_COL32(
-            255,
-            255,
-            255,
-            static_cast<int>(settings_.imageBackgroundOpacity * 255.0F)));
+        ThemeImageTint(
+            accent,
+            settings_.imageBackgroundOpacity,
+            0.42F));
+
     drawList->AddRectFilled(
         position,
         {position.x + size.x, position.y + size.y},
-        IM_COL32(2, 7, 16, 72));
+        ImGui::ColorConvertFloat4ToU32({
+            accent.x * 0.07F,
+            accent.y * 0.07F,
+            accent.z * 0.07F,
+            0.30F}));
+    drawList->AddRectFilled(
+        position,
+        {position.x + size.x, position.y + size.y},
+        WithAlpha(accent, 0.035F));
 }
 
 void Menu::DrawNeonHeader() const {
-    constexpr std::string_view title{"DIRECT // MENU"};
     const ImVec4 accent = themes_.Accent();
+
+    if (brandHeader_.HasImage()) {
+        const auto& texture = brandHeader_.Texture();
+        if (texture.width > 0 && texture.height > 0) {
+            const float availableWidth = ImGui::GetContentRegionAvail().x;
+            const float aspect =
+                static_cast<float>(texture.height) /
+                static_cast<float>(texture.width);
+
+            float width = availableWidth;
+            float height = width * aspect;
+            constexpr float maximumHeight = 126.0F;
+            if (height > maximumHeight) {
+                height = maximumHeight;
+                width = height / aspect;
+            }
+
+            const float offsetX = std::max((availableWidth - width) * 0.5F, 0.0F);
+            const ImVec2 cursor = ImGui::GetCursorScreenPos();
+            const ImVec2 topLeft{cursor.x + offsetX, cursor.y};
+            const ImVec2 bottomRight{topLeft.x + width, topLeft.y + height};
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+            drawList->AddImage(
+                static_cast<ImTextureID>(texture.gpuDescriptor.ptr),
+                topLeft,
+                bottomRight,
+                {0.0F, 0.0F},
+                {1.0F, 1.0F},
+                ThemeImageTint(accent, 1.0F, 0.50F));
+            drawList->AddRectFilled(
+                topLeft,
+                bottomRight,
+                WithAlpha(accent, 0.055F),
+                7.0F);
+            drawList->AddRect(
+                topLeft,
+                bottomRight,
+                WithAlpha(accent, 0.82F),
+                7.0F,
+                0,
+                1.5F);
+
+            ImGui::Dummy({availableWidth, height + 8.0F});
+            return;
+        }
+    }
+
+    constexpr std::string_view title{"DIRECT // MENU"};
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImFont* font = ImGui::GetFont();
     const float size = ImGui::GetFontSize() * 1.34F;
@@ -385,11 +490,16 @@ void Menu::DrawNeonHeader() const {
         WithAlpha(accent, 1.0F),
         title.data(),
         title.data() + title.size());
+
+    ImVec4 highlight = accent;
+    highlight.x = std::min(highlight.x + 0.30F, 1.0F);
+    highlight.y = std::min(highlight.y + 0.30F, 1.0F);
+    highlight.z = std::min(highlight.z + 0.30F, 1.0F);
     drawList->AddText(
         font,
         size,
         {position.x, position.y - 1.0F},
-        IM_COL32(205, 240, 255, 210),
+        WithAlpha(highlight, 0.88F),
         title.data(),
         title.data() + title.size());
 
@@ -644,8 +754,13 @@ void Menu::RenderSettings() {
         callbacks_.toggleVisibility();
     }
 
-    ImGui::PushStyleColor(ImGuiCol_Button, {0.46F, 0.10F, 0.13F, 1.0F});
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.62F, 0.14F, 0.18F, 1.0F});
+    const ImVec4 accent = themes_.Accent();
+    ImGui::PushStyleColor(
+        ImGuiCol_Button,
+        ImVec4{accent.x, accent.y, accent.z, 0.26F});
+    ImGui::PushStyleColor(
+        ImGuiCol_ButtonHovered,
+        ImVec4{accent.x, accent.y, accent.z, 0.56F});
     if (ImGui::Button("Exit Menu", {-1.0F, 40.0F}) && callbacks_.requestExit) {
         callbacks_.requestExit();
     }
@@ -679,7 +794,8 @@ void Menu::RenderLua() {
 }
 
 void Menu::RenderThemes() {
-    RenderInfoCard("Theme changes are applied immediately and saved in configurations.");
+    RenderInfoCard(
+        "Theme changes recolor controls, borders, headers, and Reaper artwork immediately.");
 
     for (const ThemeEntry& theme : themes_.Themes()) {
         ImGui::PushID(theme.id.c_str());
@@ -705,7 +821,8 @@ void Menu::RenderThemes() {
 void Menu::RenderImages() {
     RenderInfoCard(
         "Load PNG, JPG, BMP, or TIFF images through Windows Imaging "
-        "Component. The loaded texture is applied to the menu background live.");
+        "Component. A custom image overrides the built-in Reaper background; "
+        "clearing it restores the built-in artwork.");
 
     ImGui::InputText(
         "Image Path",
@@ -769,12 +886,26 @@ void Menu::RenderImages() {
             static_cast<ImTextureID>(texture.gpuDescriptor.ptr),
             previewSize);
 
-        if (ImGui::Button("Clear Image", {-1.0F, 36.0F})) {
+        if (ImGui::Button("Clear Custom Image", {-1.0F, 36.0F})) {
             images_.Clear(backend_);
             imagePath_.fill('\0');
             settings_.imagePath.clear();
-            notifications_.Push("Image cleared.", NotificationKind::Info);
+            notifications_.Push(
+                "Custom image cleared; built-in Reaper background restored.",
+                NotificationKind::Info);
         }
+    } else if (brandBackground_.HasImage()) {
+        ImGui::Spacing();
+        ImGui::Checkbox(
+            "Apply Built-in Reaper Background",
+            &settings_.imageBackgroundEnabled);
+        ImGui::SliderFloat(
+            "Background Brightness",
+            &settings_.imageBackgroundOpacity,
+            0.05F,
+            1.0F,
+            "%.2f");
+        ImGui::TextDisabled("Built-in Reaper background is active.");
     }
 }
 
@@ -889,7 +1020,8 @@ void Menu::ApplyLoadedSettings() {
         std::string imageError;
         if (!images_.Load(path, backend_, imageError)) {
             notifications_.Push(
-                "Settings loaded, but the saved image could not be loaded.",
+                "Settings loaded, but the saved image could not be loaded. "
+                "The built-in Reaper background will be used instead.",
                 NotificationKind::Warning,
                 5.0);
         }
