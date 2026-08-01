@@ -35,6 +35,8 @@ Application::Application()
     : configs_(fileSystem_, logger_),
       lua_(logger_),
       fonts_(logger_),
+      brandBackground_(logger_),
+      brandHeader_(logger_),
       images_(logger_) {
 }
 
@@ -108,6 +110,8 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
         fileSystem_,
         lua_,
         fonts_,
+        brandBackground_,
+        brandHeader_,
         images_,
         notifications_,
         themes_,
@@ -283,16 +287,37 @@ bool Application::InitializeGraphics(std::string& errorMessage) {
         executablePath.data(),
         static_cast<DWORD>(executablePath.size()));
     if (pathLength > 0 && pathLength < executablePath.size()) {
+        const std::filesystem::path assetsDirectory =
+            std::filesystem::path{executablePath.data()}.parent_path() / L"assets";
+
         const std::filesystem::path defaultBackground =
-            std::filesystem::path{executablePath.data()}.parent_path() /
-            L"assets" / L"direct_menu_neon_background.jpg";
+            assetsDirectory / L"direct_menu_background.jpg";
+        const std::filesystem::path legacyBackground =
+            assetsDirectory / L"direct_menu_neon_background.jpg";
+        const std::filesystem::path defaultHeader =
+            assetsDirectory / L"direct_menu_header.jpg";
+
+        std::string imageError;
         if (std::filesystem::exists(defaultBackground)) {
-            std::string imageError;
-            if (!images_.Load(defaultBackground, backend_, imageError)) {
+            if (!brandBackground_.Load(defaultBackground, backend_, imageError)) {
                 logger_.Warning(
-                    "The included neon background could not be loaded: " +
+                    "The included Reaper background could not be loaded: " +
                     imageError);
             }
+        } else if (std::filesystem::exists(legacyBackground)) {
+            if (!brandBackground_.Load(legacyBackground, backend_, imageError)) {
+                logger_.Warning(
+                    "The fallback background could not be loaded: " +
+                    imageError);
+            }
+        }
+
+        imageError.clear();
+        if (std::filesystem::exists(defaultHeader) &&
+            !brandHeader_.Load(defaultHeader, backend_, imageError)) {
+            logger_.Warning(
+                "The included Direct Menu Reaper header could not be loaded: " +
+                imageError);
         }
     }
 
@@ -445,6 +470,12 @@ void Application::Cleanup() {
     menu_.reset();
     if (images_.HasImage()) {
         images_.Clear(backend_);
+    }
+    if (brandHeader_.HasImage()) {
+        brandHeader_.Clear(backend_);
+    }
+    if (brandBackground_.HasImage()) {
+        brandBackground_.Clear(backend_);
     }
 
     if (imguiContextCreated_) {
