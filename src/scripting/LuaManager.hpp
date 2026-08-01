@@ -2,11 +2,17 @@
 
 #include "scripting/LuaBindingLibrary.hpp"
 #include "scripting/LuaCommands.hpp"
+#include "scripting/LuaEvents.hpp"
 #include "scripting/LuaModuleManager.hpp"
 #include "scripting/LuaScriptsManager.hpp"
+#include "scripting/LuaTimerManager.hpp"
+#include "scripting/LuaUI.hpp"
+
+#include <sol/sol.hpp>
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 namespace smf::features {
 class FeatureRegistry;
@@ -29,11 +35,13 @@ public:
     void Initialize(std::filesystem::path scriptsDirectory);
     void Shutdown() noexcept;
     void Update();
+    void Draw();
     void Refresh();
 
     [[nodiscard]] const std::vector<ScriptRecord>& Scripts() const noexcept;
     [[nodiscard]] bool RuntimeReady() const noexcept;
     [[nodiscard]] std::string StatusText() const;
+    [[nodiscard]] std::string ActiveScriptName() const;
 
     void BindFeatureRegistry(features::FeatureRegistry& registry);
 
@@ -41,13 +49,26 @@ public:
     [[nodiscard]] LuaModuleManager& Modules() noexcept;
     [[nodiscard]] LuaCommands& Commands() noexcept;
     [[nodiscard]] LuaBindingLibrary& Bindings() noexcept;
+    [[nodiscard]] LuaEvents& Events() noexcept;
+    [[nodiscard]] LuaTimerManager& Timers() noexcept;
+    [[nodiscard]] LuaUI& UI() noexcept;
+    [[nodiscard]] sol::state& State() noexcept;
 
 private:
+    void OpenLibraries();
+    void SetActiveScript(std::string_view owner);
+    void CleanupOwnedResources(std::string_view owner);
+
     logging::LoggerApi& logger_;
+    sol::state luaState_;
     LuaCommands commands_;
+    LuaEvents events_;
+    LuaTimerManager timers_;
+    LuaUI ui_;
     LuaBindingLibrary bindings_;
     LuaScriptsManager scripts_;
     LuaModuleManager modules_;
+    std::string activeScriptName_;
     bool initialized_{false};
 };
 
