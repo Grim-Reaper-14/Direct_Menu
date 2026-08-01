@@ -140,7 +140,17 @@ void LuaManager::Draw() {
 
     drawingFrame_ = true;
     events_.Emit("draw");
-    ui_.Draw();
+    drawingFrame_ = false;
+}
+
+void LuaManager::DrawMenu() {
+    if (!initialized_) {
+        return;
+    }
+
+    drawingFrame_ = true;
+    events_.Emit("menu");
+    ui_.DrawInline();
     drawingFrame_ = false;
 }
 
@@ -161,6 +171,11 @@ bool LuaManager::RuntimeReady() const noexcept {
     return initialized_ && bindings_.Ready();
 }
 
+bool LuaManager::HasMenuContent() const noexcept {
+    return initialized_ &&
+           (events_.HasSubscribers("menu") || !ui_.Empty());
+}
+
 std::string LuaManager::StatusText() const {
     if (!initialized_) {
         return "Lua subsystem is not initialized.";
@@ -170,7 +185,7 @@ std::string LuaManager::StatusText() const {
         return "Lua 5.4 runtime is initialized; waiting for the native feature registry binding.";
     }
 
-    return "Lua 5.4 + sol2 runtime ready. Scripts autoload, hot reload on file changes, and support events, timers, commands, and retained ImGui widgets.";
+    return "Lua 5.4 + sol2 runtime ready. Scripts autoload, hot reload, and can render controls directly in this menu or in separate draw overlays.";
 }
 
 std::string LuaManager::ActiveScriptName() const {

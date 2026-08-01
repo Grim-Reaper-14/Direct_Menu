@@ -36,10 +36,12 @@ public:
     void Shutdown() noexcept;
     void Update();
     void Draw();
+    void DrawMenu();
     void Refresh();
 
     [[nodiscard]] const std::vector<ScriptRecord>& Scripts() const noexcept;
     [[nodiscard]] bool RuntimeReady() const noexcept;
+    [[nodiscard]] bool HasMenuContent() const noexcept;
     [[nodiscard]] std::string StatusText() const;
     [[nodiscard]] std::string ActiveScriptName() const;
 

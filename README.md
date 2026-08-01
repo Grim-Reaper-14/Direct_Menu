@@ -78,37 +78,31 @@ with globals such as `SCRIPT_AUTHOR`, `SCRIPT_VERSION`, and
 
 ### Lua ImGui API
 
-Scripts can draw immediate-mode interfaces by registering a protected `draw`
-event callback. The global `ImGui` table follows Dear ImGui naming, and the
-same table is also available as lowercase `imgui`:
+Scripts can draw immediate-mode controls directly inside **Settings > Lua** by
+registering a protected `menu` event callback. The global `ImGui` table follows
+Dear ImGui naming, and the same table is also available as lowercase `imgui`:
 
 ```lua
 local enabled = false
 
-event.on("draw", function()
-    ImGui.SetNextWindowSize(420, 240, ImGui.Cond.FirstUseEver)
-    local visible = ImGui.Begin(
-        "My Lua Window",
-        ImGui.WindowFlags.AlwaysAutoResize)
-
-    if visible then
-        ImGui.Text("Hello from Lua")
-        local changed
-        changed, enabled = ImGui.Checkbox("Enabled", enabled)
-        if ImGui.Button("Run") then
-            log.info("Lua ImGui button clicked")
-        end
+event.on("menu", function()
+    ImGui.Text("Hello from Lua")
+    local changed
+    changed, enabled = ImGui.Checkbox("Enabled", enabled)
+    if ImGui.Button("Run") then
+        log.info("Lua ImGui button clicked")
     end
-
-    ImGui.End()
 end)
 ```
 
 The binding includes windows, text, buttons, checkboxes, radio buttons,
 sliders, numeric/text inputs, color editing, progress bars, tree/header and
 selectable controls, tabs, combos, common layout helpers, item-state queries,
-tooltips, and common flag tables. Immediate-mode functions are intentionally
-guarded so they only run from a `draw` callback or a retained Lua UI callback.
+tooltips, and common flag tables. The retained `ui.text`, `ui.button`, and
+`ui.checkbox` helpers are also rendered inside the Lua menu. Scripts that
+intentionally need a separate overlay window can still use the `draw` event
+with a paired `ImGui.Begin`/`ImGui.End` block. Immediate-mode functions are
+guarded so they only run from a `menu`, `draw`, or retained UI callback.
 
 ## Project structure
 

@@ -26,7 +26,7 @@ struct BindingState {
         }
         logger.Warning(
             "Lua ImGui." + std::string{functionName} +
-            " ignored outside an event.on('draw', ...) callback.");
+            " ignored outside a Lua menu, draw, or retained UI callback.");
         return false;
     }
 };

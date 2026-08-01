@@ -31,7 +31,8 @@ public:
     bool Remove(std::uint64_t id);
     void RemoveByOwner(std::string_view owner);
     void Clear();
-    void Draw();
+    void DrawInline();
+    [[nodiscard]] bool Empty() const noexcept;
 
 private:
     enum class WidgetType {

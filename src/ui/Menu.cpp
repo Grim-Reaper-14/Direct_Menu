@@ -655,6 +655,20 @@ void Menu::RenderSettings() {
 void Menu::RenderLua() {
     RenderInfoCard(lua_.StatusText());
 
+    ImGui::SeparatorText("Script Interface");
+    if (lua_.HasMenuContent()) {
+        ImGui::PushID("LuaScriptInterface");
+        lua_.DrawMenu();
+        ImGui::PopID();
+    } else {
+        ImGui::TextWrapped(
+            "Loaded scripts can place controls here with ui.text/ui.button/"
+            "ui.checkbox or event.on(\"menu\", function() ... end).");
+    }
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Script Management");
+
     if (ImGui::Button("Open LuaScripts Folder", {-1.0F, 38.0F})) {
         if (!fileSystem_.OpenFolder(window_, fileSystem_.LuaScripts())) {
             notifications_.Push(

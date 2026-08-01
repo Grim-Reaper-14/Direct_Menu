@@ -79,17 +79,7 @@ void LuaUI::Clear() {
     widgets_.clear();
 }
 
-void LuaUI::Draw() {
-    if (widgets_.empty()) {
-        return;
-    }
-
-    ImGui::SetNextWindowSize(ImVec2{360.0F, 320.0F}, ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Lua Extensions")) {
-        ImGui::End();
-        return;
-    }
-
+void LuaUI::DrawInline() {
     for (Widget& widget : widgets_) {
         ImGui::PushID(static_cast<int>(widget.id));
 
@@ -130,8 +120,10 @@ void LuaUI::Draw() {
 
         ImGui::PopID();
     }
+}
 
-    ImGui::End();
+bool LuaUI::Empty() const noexcept {
+    return widgets_.empty();
 }
 
 } // namespace smf::scripting

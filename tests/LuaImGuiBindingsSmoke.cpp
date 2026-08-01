@@ -68,31 +68,24 @@ int main() {
             local slider = 0.25
             local input = "hello"
 
-            event.on("draw", function()
-                ImGui.SetNextWindowSize(420, 260, ImGui.Cond.FirstUseEver)
-                local visible = ImGui.Begin(
-                    "Lua ImGui Smoke",
-                    ImGui.WindowFlags.AlwaysAutoResize)
+            ui.text("Retained control embedded in the Lua menu")
 
-                if visible then
-                    ImGui.Text("Immediate-mode Lua binding is active")
-                    ImGui.TextColored(0.2, 0.8, 1.0, 1.0, "Colored text")
-                    local changed
-                    changed, enabled = ImGui.Checkbox("Enabled", enabled)
-                    changed, slider = ImGui.SliderFloat("Value", slider, 0.0, 1.0)
-                    changed, input = ImGui.InputText("Input", input, 128)
-                    ImGui.ProgressBar(slider)
+            event.on("menu", function()
+                ImGui.Text("Immediate-mode Lua binding is active")
+                ImGui.TextColored(0.2, 0.8, 1.0, 1.0, "Colored text")
+                local changed
+                changed, enabled = ImGui.Checkbox("Enabled", enabled)
+                changed, slider = ImGui.SliderFloat("Value", slider, 0.0, 1.0)
+                changed, input = ImGui.InputText("Input", input, 128)
+                ImGui.ProgressBar(slider)
 
-                    if ImGui.BeginTabBar("SmokeTabs") then
-                        if ImGui.BeginTabItem("One") then
-                            ImGui.TextWrapped("Tab content from Lua")
-                            ImGui.EndTabItem()
-                        end
-                        ImGui.EndTabBar()
+                if ImGui.BeginTabBar("SmokeTabs") then
+                    if ImGui.BeginTabItem("One") then
+                        ImGui.TextWrapped("Tab content from Lua")
+                        ImGui.EndTabItem()
                     end
+                    ImGui.EndTabBar()
                 end
-
-                ImGui.End()
                 _G.IMGUI_SMOKE_DRAWN = true
             end)
         )",
@@ -105,7 +98,8 @@ int main() {
 
     ImGui::NewFrame();
     drawingFrame = true;
-    events.Emit("draw");
+    events.Emit("menu");
+    retainedUi.DrawInline();
     drawingFrame = false;
     ImGui::Render();
 
