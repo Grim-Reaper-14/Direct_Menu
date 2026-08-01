@@ -69,6 +69,8 @@ public:
         const filesystem::FileSystemManager& fileSystem,
         scripting::LuaManager& lua,
         FontManager& fonts,
+        ImageLoader& brandBackground,
+        ImageLoader& brandHeader,
         ImageLoader& images,
         NotificationCenter& notifications,
         ThemeManager& themes,
@@ -117,6 +119,8 @@ private:
     const filesystem::FileSystemManager& fileSystem_;
     scripting::LuaManager& lua_;
     FontManager& fonts_;
+    ImageLoader& brandBackground_;
+    ImageLoader& brandHeader_;
     ImageLoader& images_;
     NotificationCenter& notifications_;
     ThemeManager& themes_;
