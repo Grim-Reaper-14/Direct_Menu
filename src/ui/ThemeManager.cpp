@@ -36,11 +36,27 @@ void ApplyAccent(ImGuiStyle& style, const ImVec4 accent) {
     colors[ImGuiCol_CheckMark] = accent;
     colors[ImGuiCol_SliderGrab] = accent;
     colors[ImGuiCol_SliderGrabActive] = hovered;
-    colors[ImGuiCol_ButtonHovered] = ImVec4{accent.x, accent.y, accent.z, 0.72F};
-    colors[ImGuiCol_ButtonActive] = active;
+
+    colors[ImGuiCol_Button] = ImVec4{accent.x, accent.y, accent.z, 0.22F};
+    colors[ImGuiCol_ButtonHovered] = ImVec4{accent.x, accent.y, accent.z, 0.62F};
+    colors[ImGuiCol_ButtonActive] = ImVec4{active.x, active.y, active.z, 0.92F};
+
     colors[ImGuiCol_Header] = ImVec4{accent.x, accent.y, accent.z, 0.35F};
     colors[ImGuiCol_HeaderHovered] = ImVec4{accent.x, accent.y, accent.z, 0.58F};
     colors[ImGuiCol_HeaderActive] = ImVec4{accent.x, accent.y, accent.z, 0.75F};
+
+    colors[ImGuiCol_FrameBgHovered] = ImVec4{accent.x, accent.y, accent.z, 0.20F};
+    colors[ImGuiCol_FrameBgActive] = ImVec4{accent.x, accent.y, accent.z, 0.30F};
+
+    colors[ImGuiCol_Separator] = ImVec4{accent.x, accent.y, accent.z, 0.38F};
+    colors[ImGuiCol_SeparatorHovered] = ImVec4{accent.x, accent.y, accent.z, 0.72F};
+    colors[ImGuiCol_SeparatorActive] = accent;
+    colors[ImGuiCol_Border] = ImVec4{accent.x, accent.y, accent.z, 0.45F};
+
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4{accent.x, accent.y, accent.z, 0.28F};
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4{accent.x, accent.y, accent.z, 0.48F};
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4{accent.x, accent.y, accent.z, 0.68F};
+
     colors[ImGuiCol_ResizeGrip] = ImVec4{accent.x, accent.y, accent.z, 0.22F};
     colors[ImGuiCol_ResizeGripHovered] = ImVec4{accent.x, accent.y, accent.z, 0.67F};
     colors[ImGuiCol_ResizeGripActive] = accent;
@@ -116,4 +132,3 @@ ImVec4 ThemeManager::Accent() const noexcept {
 }
 
 } // namespace smf::ui
-
