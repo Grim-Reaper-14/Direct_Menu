@@ -6,7 +6,9 @@
 #include "scripting/LuaTimerManager.hpp"
 #include "scripting/LuaUI.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <string>
 #include <utility>
 
