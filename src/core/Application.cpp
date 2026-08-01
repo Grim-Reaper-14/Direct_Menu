@@ -473,6 +473,64 @@ void Application::RegisterBuiltInFeatures() {
         0,
         6);
 
+    features_.RegisterToggle(
+        "network.show_status",
+        "Network",
+        "Show Connection Status",
+        "Display a local connection-status panel when a provider is added.");
+    features_.RegisterToggle(
+        "network.bandwidth_monitor",
+        "Network",
+        "Bandwidth Monitor",
+        "Display local bandwidth diagnostics when a provider is added.");
+    features_.RegisterInteger(
+        "network.refresh_interval",
+        "Network",
+        "Refresh Interval (seconds)",
+        "Saved refresh interval for future network diagnostics.",
+        5,
+        1,
+        60);
+
+    features_.RegisterToggle(
+        "sessions.join_notifications",
+        "Online Sessions",
+        "Join Notifications",
+        "Show a local notification for future session events.");
+    features_.RegisterToggle(
+        "sessions.friends_only",
+        "Online Sessions",
+        "Friends-Only Filter",
+        "Saved filter preference for a future legitimate session provider.");
+    features_.RegisterInteger(
+        "sessions.maximum_results",
+        "Online Sessions",
+        "Maximum Results",
+        "Saved display limit for future session-list results.",
+        16,
+        1,
+        32);
+
+    features_.RegisterToggle(
+        "misc.show_clock",
+        "Misc",
+        "Show Menu Clock",
+        "Saved preference for a clock in the menu interface.");
+    features_.RegisterToggle(
+        "misc.compact_notifications",
+        "Misc",
+        "Compact Notifications",
+        "Saved preference for smaller notification cards.");
+    features_.RegisterFloat(
+        "misc.interface_scale",
+        "Misc",
+        "Interface Scale",
+        "Saved interface scaling preference for a future layout provider.",
+        1.0F,
+        0.75F,
+        1.50F,
+        0.05F);
+
     logger_.Info("Registered built-in UI placeholder features.");
 }
 

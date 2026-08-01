@@ -180,7 +180,12 @@ add_custom_command(TARGET Direct_Menu POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/assets/grim_reaper_icon.png"
         "$<TARGET_FILE_DIR:Direct_Menu>/assets/grim_reaper_icon.png"
-    COMMENT "Copying the Direct_Menu visual assets"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:Direct_Menu>/LuaScripts"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/LuaScripts/imgui_example.lua"
+        "$<TARGET_FILE_DIR:Direct_Menu>/LuaScripts/imgui_example.lua"
+    COMMENT "Copying the Direct_Menu visual assets and Lua example"
 )
 
 include(CTest)
@@ -231,6 +236,11 @@ if(BUILD_TESTING)
     )
     target_include_directories(LuaImGuiBindingsSmoke PRIVATE src)
     target_compile_features(LuaImGuiBindingsSmoke PRIVATE cxx_std_20)
+    target_compile_definitions(
+        LuaImGuiBindingsSmoke
+        PRIVATE
+            DIRECT_MENU_EXAMPLE_SCRIPT="${CMAKE_SOURCE_DIR}/LuaScripts/imgui_example.lua"
+    )
     target_link_libraries(
         LuaImGuiBindingsSmoke
         PRIVATE imgui lua_static sol2::sol2)

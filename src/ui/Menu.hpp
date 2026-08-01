@@ -46,6 +46,9 @@ enum class MenuPage {
     Vehicle,
     VehicleSpawn,
     Lsc,
+    Network,
+    OnlineSessions,
+    Misc,
     Settings,
     Lua,
     Themes,
@@ -102,6 +105,9 @@ private:
     void RenderVehicle();
     void RenderVehicleSpawn();
     void RenderLsc();
+    void RenderNetwork();
+    void RenderOnlineSessions();
+    void RenderMisc();
     void RenderSettings();
     void RenderLua();
     void RenderThemes();

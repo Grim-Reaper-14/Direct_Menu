@@ -96,6 +96,17 @@ int main() {
         std::cerr << error.what() << '\n';
     }
 
+    const sol::protected_function_result exampleScript = lua.safe_script_file(
+        DIRECT_MENU_EXAMPLE_SCRIPT,
+        sol::script_pass_on_error);
+    passed &= Expect(
+        exampleScript.valid(),
+        "Bundled Lua ImGui example failed to load.");
+    if (!exampleScript.valid()) {
+        const sol::error error = exampleScript;
+        std::cerr << error.what() << '\n';
+    }
+
     ImGui::NewFrame();
     drawingFrame = true;
     events.Emit("menu");

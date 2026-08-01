@@ -225,6 +225,15 @@ void Menu::RenderMain() {
         case MenuPage::Lsc:
             RenderLsc();
             break;
+        case MenuPage::Network:
+            RenderNetwork();
+            break;
+        case MenuPage::OnlineSessions:
+            RenderOnlineSessions();
+            break;
+        case MenuPage::Misc:
+            RenderMisc();
+            break;
         case MenuPage::Settings:
             RenderSettings();
             break;
@@ -288,6 +297,12 @@ std::string_view Menu::PageTitle(const MenuPage page) {
         return "Vehicle Spawn";
     case MenuPage::Lsc:
         return "LSC";
+    case MenuPage::Network:
+        return "Network";
+    case MenuPage::OnlineSessions:
+        return "Online Sessions";
+    case MenuPage::Misc:
+        return "Miscellaneous";
     case MenuPage::Settings:
         return "Settings";
     case MenuPage::Lua:
@@ -536,7 +551,10 @@ void Menu::RenderHome() {
             "Weapons",
             "Unlocks",
             "Vehicle",
-            "LSC"
+            "LSC",
+            "Network",
+            "Online Sessions",
+            "Misc"
         };
 
         for (const std::string_view category : categories) {
@@ -569,6 +587,9 @@ void Menu::RenderHome() {
     SubmenuButton("Teleport", MenuPage::Teleport);
     SubmenuButton("Unlocks", MenuPage::Unlocks);
     SubmenuButton("Vehicle", MenuPage::Vehicle);
+    SubmenuButton("Network", MenuPage::Network);
+    SubmenuButton("Online Sessions", MenuPage::OnlineSessions);
+    SubmenuButton("Miscellaneous", MenuPage::Misc);
     ImGui::Spacing();
     SubmenuButton("Settings", MenuPage::Settings);
 }
@@ -653,6 +674,53 @@ void Menu::RenderLsc() {
         notifications_.Push(
             "LSC request captured; no provider is connected.",
             NotificationKind::Info);
+    }
+}
+
+void Menu::RenderNetwork() {
+    RenderInfoCard(
+        "Network options are local interface preferences and diagnostics "
+        "placeholders. This standalone build does not contact a server.");
+    RenderFeatureCategory("Network");
+
+    if (ImGui::Button("Refresh Network Status", {-1.0F, 40.0F})) {
+        notifications_.Push(
+            "Network status refresh simulated; no provider is connected.",
+            NotificationKind::Info);
+    }
+}
+
+void Menu::RenderOnlineSessions() {
+    RenderInfoCard(
+        "Online Sessions demonstrates filters and session-list controls. "
+        "It does not enumerate, join, or modify real online sessions.");
+    RenderFeatureCategory("Online Sessions");
+
+    const float buttonWidth =
+        (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5F;
+    if (ImGui::Button("Refresh Sessions", {buttonWidth, 40.0F})) {
+        notifications_.Push(
+            "Session refresh simulated; no provider is connected.",
+            NotificationKind::Info);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Quick Join", {-1.0F, 40.0F})) {
+        notifications_.Push(
+            "Quick Join is a UI placeholder in this standalone build.",
+            NotificationKind::Warning);
+    }
+}
+
+void Menu::RenderMisc() {
+    RenderInfoCard(
+        "Miscellaneous contains saved quality-of-life preferences for the "
+        "menu interface.");
+    RenderFeatureCategory("Misc");
+
+    if (ImGui::Button("Test Notification", {-1.0F, 40.0F})) {
+        notifications_.Push(
+            "Miscellaneous notification test successful.",
+            NotificationKind::Success);
     }
 }
 

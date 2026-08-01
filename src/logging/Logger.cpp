@@ -1,5 +1,7 @@
 #include "logging/Logger.hpp"
 
+#include <Windows.h>
+
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -8,6 +10,51 @@
 #include <thread>
 
 namespace smf::logging {
+namespace {
+
+WORD ConsoleAttributesForLevel(const LogLevel level) {
+    constexpr WORD gray =
+        FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+    constexpr WORD bright = FOREGROUND_INTENSITY;
+
+    switch (level) {
+    case LogLevel::Trace:
+        return gray;
+    case LogLevel::Debug:
+        return FOREGROUND_GREEN | FOREGROUND_BLUE | bright;
+    case LogLevel::Info:
+        return FOREGROUND_GREEN | bright;
+    case LogLevel::Warning:
+        return FOREGROUND_RED | FOREGROUND_GREEN | bright;
+    case LogLevel::Error:
+        return FOREGROUND_RED | bright;
+    case LogLevel::Critical:
+        return gray | bright | BACKGROUND_RED;
+    }
+    return gray;
+}
+
+void WriteColoredConsoleLine(const LogLevel level, const std::string& line) {
+    const HANDLE console = GetStdHandle(STD_ERROR_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO original{};
+    const bool canSetColor =
+        console != nullptr &&
+        console != INVALID_HANDLE_VALUE &&
+        GetConsoleScreenBufferInfo(console, &original) != FALSE;
+
+    if (canSetColor) {
+        SetConsoleTextAttribute(console, ConsoleAttributesForLevel(level));
+    }
+
+    std::clog << line;
+    std::clog.flush();
+
+    if (canSetColor) {
+        SetConsoleTextAttribute(console, original.wAttributes);
+    }
+}
+
+} // namespace
 
 LoggerApi::~LoggerApi() {
     Shutdown();
@@ -62,8 +109,7 @@ void LoggerApi::Log(const LogLevel level, const std::string_view message) {
         stream_.flush();
     }
     if (consoleOutputEnabled_) {
-        std::clog << formatted;
-        std::clog.flush();
+        WriteColoredConsoleLine(level, formatted);
     }
 }
 
