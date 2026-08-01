@@ -237,6 +237,9 @@ void Menu::RenderMain() {
         case MenuPage::Settings:
             RenderSettings();
             break;
+        case MenuPage::StyleEditor:
+            RenderStyleEditor();
+            break;
         case MenuPage::Lua:
             RenderLua();
             break;
@@ -305,6 +308,8 @@ std::string_view Menu::PageTitle(const MenuPage page) {
         return "Miscellaneous";
     case MenuPage::Settings:
         return "Settings";
+    case MenuPage::StyleEditor:
+        return "Settings / ImGui Style Editor";
     case MenuPage::Lua:
         return "Settings / Lua";
     case MenuPage::Themes:
@@ -730,6 +735,7 @@ void Menu::RenderMisc() {
 void Menu::RenderSettings() {
     SubmenuButton("Lua", MenuPage::Lua);
     SubmenuButton("Themes", MenuPage::Themes);
+    SubmenuButton("ImGui Style Editor", MenuPage::StyleEditor);
     SubmenuButton("Image Loader", MenuPage::Images);
     SubmenuButton("Font Selection", MenuPage::Fonts);
     SubmenuButton("Save / Load Settings", MenuPage::Configurations);
@@ -749,6 +755,16 @@ void Menu::RenderSettings() {
         callbacks_.requestExit();
     }
     ImGui::PopStyleColor(2);
+}
+
+void Menu::RenderStyleEditor() {
+    RenderInfoCard(
+        "Edit the active Dear ImGui style live. Changes remain active for "
+        "this run; use a named theme or restart the app to restore defaults.");
+
+    ImGui::PushID("DirectMenuStyleEditor");
+    ImGui::ShowStyleEditor(&ImGui::GetStyle());
+    ImGui::PopID();
 }
 
 void Menu::RenderLua() {

@@ -50,6 +50,7 @@ enum class MenuPage {
     OnlineSessions,
     Misc,
     Settings,
+    StyleEditor,
     Lua,
     Themes,
     Images,
@@ -109,6 +110,7 @@ private:
     void RenderOnlineSessions();
     void RenderMisc();
     void RenderSettings();
+    void RenderStyleEditor();
     void RenderLua();
     void RenderThemes();
     void RenderImages();
