@@ -72,6 +72,7 @@ Menu::Menu(
     scripting::LuaManager& lua,
     FontManager& fonts,
     ImageLoader& images,
+    ImageLoader& brandingIcon,
     NotificationCenter& notifications,
     ThemeManager& themes,
     core::AppSettings& settings,
@@ -84,6 +85,7 @@ Menu::Menu(
       lua_(lua),
       fonts_(fonts),
       images_(images),
+      brandingIcon_(brandingIcon),
       notifications_(notifications),
       themes_(themes),
       settings_(settings),
@@ -358,12 +360,44 @@ void Menu::DrawAppliedBackground() const {
 }
 
 void Menu::DrawNeonHeader() const {
-    constexpr std::string_view title{"DIRECT // MENU"};
+    constexpr std::string_view title{"DIRECT MENU"};
     const ImVec4 accent = themes_.Accent();
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImFont* font = ImGui::GetFont();
     const float size = ImGui::GetFontSize() * 1.34F;
     const ImVec2 position = ImGui::GetCursorScreenPos();
+
+    const ImVec2 textSize = font->CalcTextSizeA(
+        size,
+        FLT_MAX,
+        0.0F,
+        title.data(),
+        title.data() + title.size());
+    const bool showIcons = brandingIcon_.HasImage();
+    const float iconSize = showIcons ? std::max(textSize.y + 8.0F, 30.0F) : 0.0F;
+    const float iconSpacing = showIcons ? 7.0F : 0.0F;
+    const float totalWidth = textSize.x + (iconSize + iconSpacing) * 2.0F;
+    const float totalHeight = std::max(textSize.y, iconSize);
+    const ImVec2 textPosition{
+        position.x + iconSize + iconSpacing,
+        position.y + (totalHeight - textSize.y) * 0.5F};
+
+    if (showIcons) {
+        const backend::TextureResource& texture = brandingIcon_.Texture();
+        const ImTextureID textureId =
+            static_cast<ImTextureID>(texture.gpuDescriptor.ptr);
+        drawList->AddImage(
+            textureId,
+            position,
+            {position.x + iconSize, position.y + iconSize});
+        const ImVec2 rightIconPosition{
+            textPosition.x + textSize.x + iconSpacing,
+            position.y};
+        drawList->AddImage(
+            textureId,
+            rightIconPosition,
+            {rightIconPosition.x + iconSize, rightIconPosition.y + iconSize});
+    }
 
     for (const ImVec2 offset : {
              ImVec2{-2.0F, 0.0F},
@@ -373,7 +407,7 @@ void Menu::DrawNeonHeader() const {
         drawList->AddText(
             font,
             size,
-            {position.x + offset.x, position.y + offset.y},
+            {textPosition.x + offset.x, textPosition.y + offset.y},
             WithAlpha(accent, 0.20F),
             title.data(),
             title.data() + title.size());
@@ -381,31 +415,25 @@ void Menu::DrawNeonHeader() const {
     drawList->AddText(
         font,
         size,
-        position,
+        textPosition,
         WithAlpha(accent, 1.0F),
         title.data(),
         title.data() + title.size());
     drawList->AddText(
         font,
         size,
-        {position.x, position.y - 1.0F},
+        {textPosition.x, textPosition.y - 1.0F},
         IM_COL32(205, 240, 255, 210),
         title.data(),
         title.data() + title.size());
 
-    const ImVec2 textSize = font->CalcTextSizeA(
-        size,
-        FLT_MAX,
-        0.0F,
-        title.data(),
-        title.data() + title.size());
-    const float lineY = position.y + textSize.y + 3.0F;
+    const float lineY = position.y + totalHeight + 3.0F;
     drawList->AddLine(
         {position.x, lineY},
-        {position.x + textSize.x, lineY},
+        {position.x + totalWidth, lineY},
         WithAlpha(accent, 0.75F),
         1.5F);
-    ImGui::Dummy({textSize.x, textSize.y + 7.0F});
+    ImGui::Dummy({totalWidth, totalHeight + 7.0F});
 }
 
 void Menu::RenderInfoCard(const std::string_view text) const {

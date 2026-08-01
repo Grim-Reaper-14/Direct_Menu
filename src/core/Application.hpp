@@ -76,6 +76,7 @@ private:
     ui::ThemeManager themes_;
     ui::FontManager fonts_;
     ui::ImageLoader images_;
+    ui::ImageLoader brandingIcon_;
     ui::NotificationCenter notifications_;
     std::unique_ptr<ui::Menu> menu_;
 };

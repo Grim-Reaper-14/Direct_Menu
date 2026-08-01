@@ -177,7 +177,10 @@ add_custom_command(TARGET Direct_Menu POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/assets/direct_menu_neon_background.jpg"
         "$<TARGET_FILE_DIR:Direct_Menu>/assets/direct_menu_neon_background.jpg"
-    COMMENT "Copying the Direct_Menu neon background"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/assets/grim_reaper_icon.png"
+        "$<TARGET_FILE_DIR:Direct_Menu>/assets/grim_reaper_icon.png"
+    COMMENT "Copying the Direct_Menu visual assets"
 )
 
 include(CTest)

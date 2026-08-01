@@ -36,7 +36,8 @@ Application::Application()
     : configs_(fileSystem_, logger_),
       lua_(logger_),
       fonts_(logger_),
-      images_(logger_) {
+      images_(logger_),
+      brandingIcon_(logger_) {
 }
 
 Application::~Application() {
@@ -110,6 +111,7 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
         lua_,
         fonts_,
         images_,
+        brandingIcon_,
         notifications_,
         themes_,
         settings_,
@@ -309,6 +311,18 @@ bool Application::InitializeGraphics(std::string& errorMessage) {
                     imageError);
             }
         }
+
+        const std::filesystem::path brandingIcon =
+            std::filesystem::path{executablePath.data()}.parent_path() /
+            L"assets" / L"grim_reaper_icon.png";
+        if (std::filesystem::exists(brandingIcon)) {
+            std::string imageError;
+            if (!brandingIcon_.Load(brandingIcon, backend_, imageError)) {
+                logger_.Warning(
+                    "The Grim Reaper header icon could not be loaded: " +
+                    imageError);
+            }
+        }
     }
 
     return true;
@@ -460,6 +474,9 @@ void Application::Cleanup() {
     menu_.reset();
     if (images_.HasImage()) {
         images_.Clear(backend_);
+    }
+    if (brandingIcon_.HasImage()) {
+        brandingIcon_.Clear(backend_);
     }
 
     if (imguiContextCreated_) {

@@ -70,6 +70,7 @@ public:
         scripting::LuaManager& lua,
         FontManager& fonts,
         ImageLoader& images,
+        ImageLoader& brandingIcon,
         NotificationCenter& notifications,
         ThemeManager& themes,
         core::AppSettings& settings,
@@ -118,6 +119,7 @@ private:
     scripting::LuaManager& lua_;
     FontManager& fonts_;
     ImageLoader& images_;
+    ImageLoader& brandingIcon_;
     NotificationCenter& notifications_;
     ThemeManager& themes_;
     core::AppSettings& settings_;
