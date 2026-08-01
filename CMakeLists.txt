@@ -201,6 +201,14 @@ if(BUILD_TESTING)
     target_compile_features(TaskQueueSmoke PRIVATE cxx_std_20)
     add_test(NAME TaskQueueSmoke COMMAND TaskQueueSmoke)
 
+    add_executable(LoggerSmoke
+        tests/LoggerSmoke.cpp
+        src/logging/Logger.cpp
+    )
+    target_include_directories(LoggerSmoke PRIVATE src)
+    target_compile_features(LoggerSmoke PRIVATE cxx_std_20)
+    add_test(NAME LoggerSmoke COMMAND LoggerSmoke)
+
     add_executable(LuaScriptsManagerSmoke
         tests/LuaScriptsManagerSmoke.cpp
         src/logging/Logger.cpp

@@ -3,6 +3,7 @@
 #include <chrono>
 #include <ctime>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <thread>
 
@@ -24,11 +25,17 @@ void LoggerApi::Shutdown() {
         stream_.flush();
         stream_.close();
     }
+    consoleOutputEnabled_ = false;
+}
+
+void LoggerApi::SetConsoleOutputEnabled(const bool enabled) noexcept {
+    std::scoped_lock lock{mutex_};
+    consoleOutputEnabled_ = enabled;
 }
 
 void LoggerApi::Log(const LogLevel level, const std::string_view message) {
     std::scoped_lock lock{mutex_};
-    if (!stream_.is_open()) {
+    if (!stream_.is_open() && !consoleOutputEnabled_) {
         return;
     }
 
@@ -41,13 +48,23 @@ void LoggerApi::Log(const LogLevel level, const std::string_view message) {
         std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) %
         std::chrono::seconds{1};
 
-    stream_
+    std::ostringstream line;
+    line
         << std::put_time(&localTime, "%Y-%m-%d %H:%M:%S")
         << '.' << std::setfill('0') << std::setw(3) << milliseconds.count()
         << " [" << LevelName(level) << ']'
         << " [thread " << std::this_thread::get_id() << "] "
         << message << '\n';
-    stream_.flush();
+
+    const std::string formatted = line.str();
+    if (stream_.is_open()) {
+        stream_ << formatted;
+        stream_.flush();
+    }
+    if (consoleOutputEnabled_) {
+        std::clog << formatted;
+        std::clog.flush();
+    }
 }
 
 void LoggerApi::Trace(const std::string_view message) {

@@ -38,6 +38,8 @@ private:
 
     bool CreateApplicationWindow(HINSTANCE instance, std::string& errorMessage);
     bool InitializeGraphics(std::string& errorMessage);
+    void InitializeConsole();
+    void ShutdownConsole() noexcept;
     void RegisterBuiltInFeatures();
     void ToggleMenuVisibility();
     void RequestExit();
@@ -63,6 +65,7 @@ private:
     bool hotkeyRegistered_{false};
     bool minimized_{false};
     bool imguiContextCreated_{false};
+    bool consoleAllocated_{false};
     bool cleanedUp_{false};
 
     filesystem::FileSystemManager fileSystem_;

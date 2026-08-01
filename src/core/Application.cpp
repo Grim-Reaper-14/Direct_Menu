@@ -9,7 +9,9 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdio>
 #include <format>
+#include <iostream>
 #include <string>
 #include <thread>
 
@@ -46,6 +48,7 @@ Application::~Application() {
 
 int Application::Run(const HINSTANCE instance, const int showCommand) {
     instance_ = instance;
+    InitializeConsole();
 
     if (!fileSystem_.Initialize(L"Direct_Menu")) {
         MessageBoxW(
@@ -188,6 +191,43 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
 
     Cleanup();
     return 0;
+}
+
+void Application::InitializeConsole() {
+    if (GetConsoleWindow() == nullptr) {
+        consoleAllocated_ = AllocConsole() != FALSE;
+    }
+
+    if (GetConsoleWindow() == nullptr) {
+        return;
+    }
+
+    SetConsoleTitleW(L"Direct_Menu Logger");
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+
+    FILE* standardOutput = nullptr;
+    FILE* standardError = nullptr;
+    const bool outputReady =
+        freopen_s(&standardOutput, "CONOUT$", "w", stdout) == 0;
+    const bool errorReady =
+        freopen_s(&standardError, "CONOUT$", "w", stderr) == 0;
+    if (outputReady || errorReady) {
+        std::ios::sync_with_stdio(true);
+        std::cout.clear();
+        std::cerr.clear();
+        std::clog.clear();
+        logger_.SetConsoleOutputEnabled(true);
+    }
+}
+
+void Application::ShutdownConsole() noexcept {
+    std::fflush(stdout);
+    std::fflush(stderr);
+    if (consoleAllocated_) {
+        FreeConsole();
+        consoleAllocated_ = false;
+    }
 }
 
 bool Application::CreateApplicationWindow(
@@ -498,6 +538,7 @@ void Application::Cleanup() {
 
     logger_.Info("Direct_Menu stopped.");
     logger_.Shutdown();
+    ShutdownConsole();
 }
 
 LRESULT CALLBACK Application::WindowProcedure(
