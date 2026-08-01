@@ -1,0 +1,3 @@
+#include "resource.h"
+
+IDI_DIRECT_MENU ICON "../../assets/grim_reaper_icon.ico"

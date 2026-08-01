@@ -1,5 +1,6 @@
 #include "core/Application.hpp"
 
+#include "resources/resource.h"
 #include "ui/Menu.hpp"
 
 #include <imgui.h>
@@ -198,6 +199,20 @@ bool Application::CreateApplicationWindow(
     windowClass_.lpfnWndProc = WindowProcedure;
     windowClass_.hInstance = instance;
     windowClass_.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    windowClass_.hIcon = static_cast<HICON>(LoadImageW(
+        instance,
+        MAKEINTRESOURCEW(IDI_DIRECT_MENU),
+        IMAGE_ICON,
+        0,
+        0,
+        LR_DEFAULTSIZE | LR_SHARED));
+    windowClass_.hIconSm = static_cast<HICON>(LoadImageW(
+        instance,
+        MAKEINTRESOURCEW(IDI_DIRECT_MENU),
+        IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON),
+        GetSystemMetrics(SM_CYSMICON),
+        LR_SHARED));
     windowClass_.lpszClassName = WindowClassName;
 
     if (RegisterClassExW(&windowClass_) == 0) {

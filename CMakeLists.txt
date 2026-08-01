@@ -11,6 +11,8 @@ if(NOT WIN32)
     message(FATAL_ERROR "Direct_Menu targets Windows 10/11 and Direct3D 12.")
 endif()
 
+enable_language(RC)
+
 include(FetchContent)
 
 # Pinned so the renderer API does not unexpectedly change between builds.
@@ -102,6 +104,7 @@ target_compile_definitions(imgui PUBLIC
 )
 
 add_executable(Direct_Menu WIN32
+    src/resources/Direct_Menu.rc
     src/main.cpp
     src/backend/D3D12Backend.cpp
     src/config/ConfigManager.cpp
