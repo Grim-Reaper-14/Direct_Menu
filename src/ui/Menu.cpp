@@ -219,16 +219,27 @@ void Menu::RenderMain() {
     }
 
     DrawAppliedBackground();
+    const ImVec2 headerTopLeft = ImGui::GetCursorScreenPos();
     DrawNeonHeader();
 
     const char* hotkeyLabel = "F5  HIDE";
-    const float hotkeyWidth = ImGui::CalcTextSize(hotkeyLabel).x;
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(
-        std::max(
-            ImGui::GetWindowContentRegionMax().x - hotkeyWidth,
-            ImGui::GetCursorPosX()));
-    ImGui::TextDisabled("%s", hotkeyLabel);
+    const ImVec2 hotkeySize = ImGui::CalcTextSize(hotkeyLabel);
+    const ImVec2 windowPosition = ImGui::GetWindowPos();
+    const ImVec2 windowSize = ImGui::GetWindowSize();
+    const ImVec2 hotkeyPosition{
+        windowPosition.x + windowSize.x - hotkeySize.x - 12.0F,
+        headerTopLeft.y + 10.0F};
+    ImDrawList* headerDrawList = ImGui::GetWindowDrawList();
+    headerDrawList->AddRectFilled(
+        {hotkeyPosition.x - 6.0F, hotkeyPosition.y - 4.0F},
+        {hotkeyPosition.x + hotkeySize.x + 6.0F,
+         hotkeyPosition.y + hotkeySize.y + 4.0F},
+        IM_COL32(0, 0, 0, 150),
+        5.0F);
+    headerDrawList->AddText(
+        hotkeyPosition,
+        ImGui::GetColorU32(ImGuiCol_TextDisabled),
+        hotkeyLabel);
 
     ImGui::Separator();
 
@@ -500,22 +511,17 @@ void Menu::DrawNeonHeader() const {
         const auto& texture = brandHeader_.Texture();
         if (texture.width > 0 && texture.height > 0) {
             const float availableWidth = ImGui::GetContentRegionAvail().x;
+            const float bannerWidth = ImGui::GetWindowSize().x;
             const float aspect =
                 static_cast<float>(texture.height) /
                 static_cast<float>(texture.width);
 
-            float width = availableWidth;
-            float height = width * aspect;
-            constexpr float maximumHeight = 126.0F;
-            if (height > maximumHeight) {
-                height = maximumHeight;
-                width = height / aspect;
-            }
-
-            const float offsetX = std::max((availableWidth - width) * 0.5F, 0.0F);
             const ImVec2 cursor = ImGui::GetCursorScreenPos();
-            const ImVec2 topLeft{cursor.x + offsetX, cursor.y};
-            const ImVec2 bottomRight{topLeft.x + width, topLeft.y + height};
+            const ImVec2 topLeft{ImGui::GetWindowPos().x, cursor.y};
+            const float bannerHeight = bannerWidth * aspect;
+            const ImVec2 bottomRight{
+                topLeft.x + bannerWidth,
+                topLeft.y + bannerHeight};
             ImDrawList* drawList = ImGui::GetWindowDrawList();
 
             drawList->AddImage(
@@ -538,7 +544,7 @@ void Menu::DrawNeonHeader() const {
                 0,
                 1.5F);
 
-            ImGui::Dummy({availableWidth, height + 8.0F});
+            ImGui::Dummy({availableWidth, bannerHeight + 8.0F});
             return;
         }
     }
