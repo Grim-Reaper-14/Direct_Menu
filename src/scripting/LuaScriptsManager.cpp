@@ -78,6 +78,7 @@ bool LuaScriptsManager::Load(const std::string_view name) {
 bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
     cleanup_(script.name);
     runtimeScripts_.erase(script.name);
+    script.permissions.clear();
     sol::environment environment{lua_, sol::create, lua_.globals()};
     environment["SCRIPT_NAME"] = script.name;
     environment["SCRIPT_PATH"] = script.path.string();
@@ -167,6 +168,26 @@ ScriptRecord* LuaScriptsManager::Find(const std::string_view name) noexcept {
 const ScriptRecord* LuaScriptsManager::Find(const std::string_view name) const noexcept {
     const auto it = std::ranges::find_if(scripts_, [name](const ScriptRecord& script){ return script.name == name; });
     return it == scripts_.end() ? nullptr : &*it;
+}
+
+bool LuaScriptsManager::HasPermission(
+    const std::string_view owner,
+    const std::string_view permission) const noexcept {
+    const ScriptRecord* script = Find(owner);
+    if (script == nullptr) {
+        return false;
+    }
+
+    if (std::ranges::find(script->permissions, std::string{permission}) != script->permissions.end()) {
+        return true;
+    }
+
+    const auto separator = permission.find('.');
+    if (separator != std::string_view::npos) {
+        const std::string parent{permission.substr(0, separator)};
+        return std::ranges::find(script->permissions, parent) != script->permissions.end();
+    }
+    return false;
 }
 
 const std::vector<ScriptRecord>& LuaScriptsManager::Scripts() const noexcept { return scripts_; }
