@@ -87,10 +87,12 @@ private:
     void Back();
     [[nodiscard]] MenuPage CurrentPage() const;
     [[nodiscard]] static std::string_view PageTitle(MenuPage page);
+    [[nodiscard]] static std::string_view PageDescription(MenuPage page);
 
     bool SubmenuButton(std::string_view label, MenuPage target);
     void DrawAppliedBackground() const;
     void DrawNeonHeader() const;
+    void DrawBottomHeader() const;
     void RenderInfoCard(std::string_view text) const;
     void RenderFeatureCategory(std::string_view category);
     void RenderFeature(features::Feature& feature);
