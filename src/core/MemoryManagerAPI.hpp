@@ -74,6 +74,8 @@ public:
     [[nodiscard]] bool IsProcessAttached() const noexcept;
     [[nodiscard]] bool HasGameWindow() const noexcept;
     [[nodiscard]] DWORD ProcessId() const noexcept;
+    [[nodiscard]] std::uintptr_t ModuleBaseAddress(
+        std::wstring_view moduleName = {}) const noexcept;
 
     // Borrowed handles remain valid until the next attach, detach, or destruction.
     [[nodiscard]] HANDLE ProcessHandle() const noexcept;

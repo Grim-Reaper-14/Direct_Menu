@@ -197,6 +197,42 @@ DWORD MemoryManagerAPI::ProcessId() const noexcept {
     return processId_;
 }
 
+std::uintptr_t MemoryManagerAPI::ModuleBaseAddress(
+    const std::wstring_view moduleName) const noexcept {
+    DWORD processId = 0;
+    {
+        std::scoped_lock lock(mutex_);
+        processId = processId_;
+    }
+    if (processId == 0) {
+        return 0;
+    }
+
+    const HANDLE snapshot = CreateToolhelp32Snapshot(
+        TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32,
+        processId);
+    if (snapshot == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+
+    const std::wstring requestedName{moduleName};
+    std::uintptr_t baseAddress = 0;
+    MODULEENTRY32W entry{};
+    entry.dwSize = sizeof(entry);
+    if (Module32FirstW(snapshot, &entry) != FALSE) {
+        do {
+            if (requestedName.empty() ||
+                _wcsicmp(entry.szModule, requestedName.c_str()) == 0) {
+                baseAddress = reinterpret_cast<std::uintptr_t>(entry.modBaseAddr);
+                break;
+            }
+        } while (Module32NextW(snapshot, &entry) != FALSE);
+    }
+
+    CloseHandle(snapshot);
+    return baseAddress;
+}
+
 HANDLE MemoryManagerAPI::ProcessHandle() const noexcept {
     std::scoped_lock lock(mutex_);
     return processHandle_;
