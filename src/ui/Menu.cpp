@@ -229,7 +229,7 @@ void Menu::RenderMain() {
         pageTitle.data());
     ImGui::Spacing();
 
-    const float footerHeight = ImGui::GetFrameHeightWithSpacing() + 16.0F;
+    constexpr float footerHeight = 76.0F;
     if (ImGui::BeginChild(
             "##page_content",
             {0.0F, -footerHeight},
@@ -282,8 +282,8 @@ void Menu::RenderMain() {
     }
     ImGui::EndChild();
 
-    ImGui::Separator();
-    ImGui::TextDisabled("Standalone framework  |  F5 visibility");
+    ImGui::Spacing();
+    DrawBottomHeader();
     ImGui::End();
 }
 
@@ -337,6 +337,40 @@ std::string_view Menu::PageTitle(const MenuPage page) {
         return "Settings / Save & Load";
     }
     return "Menu";
+}
+
+std::string_view Menu::PageDescription(const MenuPage page) {
+    switch (page) {
+    case MenuPage::Home:
+        return "Choose a menu category or search the registered features from one place.";
+    case MenuPage::Self:
+        return "Personal state and movement controls registered through the shared feature system.";
+    case MenuPage::Weapons:
+        return "Weapon-related options and adjustable values exposed by the feature registry.";
+    case MenuPage::Teleport:
+        return "Enter position coordinates and submit teleport requests through the menu interface.";
+    case MenuPage::Unlocks:
+        return "Local preview and unlock-related settings grouped into one dedicated page.";
+    case MenuPage::Vehicle:
+        return "Vehicle state, repair, speed, spawning, and customization pages are accessed here.";
+    case MenuPage::VehicleSpawn:
+        return "Enter a vehicle model name, validate it, and submit the spawn request from this page.";
+    case MenuPage::Lsc:
+        return "Adjust the stored vehicle customization values used by the LSC section.";
+    case MenuPage::Settings:
+        return "Manage Lua, themes, backgrounds, fonts, configurations, visibility, and application controls.";
+    case MenuPage::Lua:
+        return "Refresh and manage Lua scripts and review the current scripting runtime status.";
+    case MenuPage::Themes:
+        return "Change the active accent theme; controls, headers, borders, and Reaper artwork update live.";
+    case MenuPage::Images:
+        return "Load a custom menu background or restore the built-in theme-tinted Reaper artwork.";
+    case MenuPage::Fonts:
+        return "Choose a loaded font and adjust its live scale across the menu interface.";
+    case MenuPage::Configurations:
+        return "Save, load, and restore menu settings and registered feature values.";
+    }
+    return "Direct Menu navigation and controls.";
 }
 
 bool Menu::SubmenuButton(const std::string_view label, const MenuPage target) {
@@ -516,6 +550,50 @@ void Menu::DrawNeonHeader() const {
         WithAlpha(accent, 0.75F),
         1.5F);
     ImGui::Dummy({textSize.x, textSize.y + 7.0F});
+}
+
+void Menu::DrawBottomHeader() const {
+    const MenuPage page = CurrentPage();
+    const std::string_view title = PageTitle(page);
+    const std::string_view description = PageDescription(page);
+    const ImVec4 accent = themes_.Accent();
+
+    ImGui::PushStyleColor(
+        ImGuiCol_ChildBg,
+        ImVec4{
+            accent.x * 0.045F,
+            accent.y * 0.045F,
+            accent.z * 0.045F,
+            0.88F});
+    ImGui::PushStyleColor(
+        ImGuiCol_Border,
+        ImVec4{accent.x, accent.y, accent.z, 0.58F});
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 7.0F);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0F);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{10.0F, 7.0F});
+
+    if (ImGui::BeginChild(
+            "##bottom_header",
+            {0.0F, 62.0F},
+            true,
+            ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoScrollWithMouse)) {
+        ImGui::TextColored(
+            accent,
+            "%.*s",
+            static_cast<int>(title.size()),
+            title.data());
+        ImGui::SameLine();
+        ImGui::TextDisabled("|  F5 HIDE");
+        ImGui::TextWrapped(
+            "%.*s",
+            static_cast<int>(description.size()),
+            description.data());
+    }
+    ImGui::EndChild();
+
+    ImGui::PopStyleVar(3);
+    ImGui::PopStyleColor(2);
 }
 
 void Menu::RenderInfoCard(const std::string_view text) const {
