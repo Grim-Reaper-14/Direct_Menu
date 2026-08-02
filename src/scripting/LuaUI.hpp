@@ -3,6 +3,7 @@
 #include <sol/sol.hpp>
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -12,7 +13,8 @@ namespace smf::scripting {
 
 class LuaUI {
 public:
-    explicit LuaUI(logging::LoggerApi& logger);
+    using OwnerChangedCallback = std::function<void(std::string_view)>;
+    explicit LuaUI(logging::LoggerApi& logger, OwnerChangedCallback ownerChanged = {});
     std::uint64_t AddText(std::string owner, std::string text);
     std::uint64_t AddButton(std::string owner, std::string label, sol::protected_function callback);
     std::uint64_t AddCheckbox(std::string owner, std::string label, bool initialValue, sol::protected_function callback);
@@ -31,6 +33,7 @@ private:
         sol::protected_function callback;
     };
     logging::LoggerApi& logger_;
+    OwnerChangedCallback ownerChanged_;
     std::vector<Widget> widgets_;
     std::uint64_t nextId_{1};
 };
