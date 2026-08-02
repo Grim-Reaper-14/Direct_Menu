@@ -3,6 +3,7 @@
 #include "scripting/LuaBindingLibrary.hpp"
 #include "scripting/LuaCommands.hpp"
 #include "scripting/LuaEvents.hpp"
+#include "scripting/LuaFileSystemSandbox.hpp"
 #include "scripting/LuaModuleManager.hpp"
 #include "scripting/LuaScriptsManager.hpp"
 #include "scripting/LuaTimerManager.hpp"
@@ -45,6 +46,7 @@ public:
     [[nodiscard]] LuaEvents& Events() noexcept;
     [[nodiscard]] LuaTimerManager& Timers() noexcept;
     [[nodiscard]] LuaUI& UI() noexcept;
+    [[nodiscard]] LuaFileSystemSandbox& FileSystemSandbox() noexcept;
     [[nodiscard]] sol::state& State() noexcept;
 
 private:
@@ -61,6 +63,7 @@ private:
     LuaTimerManager timers_;
     LuaUI ui_;
     LuaModuleManager modules_;
+    LuaFileSystemSandbox fileSystemSandbox_;
     LuaBindingLibrary bindings_;
     LuaScriptsManager scripts_;
     std::string activeScriptName_;
