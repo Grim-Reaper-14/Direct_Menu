@@ -1,3 +1,6 @@
+#include "core/Logger.hpp"
+#include "core/MemoryManagerAPI.hpp"
+#include "core/SignatureManager.hpp"
 #include "features/FeatureRegistry.hpp"
 #include "logging/Logger.hpp"
 #include "scripting/LuaManager.hpp"
@@ -71,12 +74,30 @@ end)
 
     int result = 0;
     {
+        smf::core::Logger memoryLogger{logger, "MemorySmoke"};
+        smf::core::MemoryManagerAPI memory{&memoryLogger};
+        smf::core::SignatureManager signatures{memory};
         smf::features::FeatureRegistry features;
         smf::scripting::LuaManager lua{logger};
         lua.BindFeatureRegistry(features);
         lua.Initialize(scripts);
+        lua.BindMemoryAPI(memory, signatures);
 
-        if (!lua.RuntimeReady()) {
+        const sol::protected_function_result bindingCheck = lua.State().safe_script(R"lua(
+            assert(type(Memory) == "table")
+            assert(type(Signatures) == "table")
+            assert(Memory.is_attached() == false)
+            assert(Memory.process_id() == 0)
+            assert(Signatures.count() == 0)
+            assert(Signatures.cached("missing") == nil)
+        )lua", sol::script_pass_on_error);
+
+        if (!bindingCheck.valid()) {
+            const sol::error error = bindingCheck;
+            result = Fail(
+                std::string{"The Lua Memory/Signatures binding smoke check failed: "} +
+                error.what());
+        } else if (!lua.RuntimeReady()) {
             result = Fail("Lua 5.4 + sol2 API v2 did not become ready.");
         } else if (lua.Scripts().size() != 1 || !lua.Scripts().front().loaded) {
             result = Fail("The runtime smoke script did not load.");
