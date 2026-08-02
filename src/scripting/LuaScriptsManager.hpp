@@ -42,6 +42,7 @@ public:
     void UnloadAll();
     [[nodiscard]] ScriptRecord* Find(std::string_view name) noexcept;
     [[nodiscard]] const ScriptRecord* Find(std::string_view name) const noexcept;
+    [[nodiscard]] bool HasPermission(std::string_view owner, std::string_view permission) const noexcept;
     [[nodiscard]] const std::vector<ScriptRecord>& Scripts() const noexcept;
     [[nodiscard]] const std::filesystem::path& Directory() const noexcept;
 
