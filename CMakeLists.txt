@@ -21,8 +21,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
-# Lua is built directly from the official source tree so Direct_Menu does not
-# require a separately installed Lua SDK.
 FetchContent_Declare(
     lua
     GIT_REPOSITORY https://github.com/lua/lua.git
@@ -118,6 +116,7 @@ add_executable(Direct_Menu WIN32
     src/scripting/LuaBindingLibrary.cpp
     src/scripting/LuaCommands.cpp
     src/scripting/LuaEvents.cpp
+    src/scripting/LuaFileSystemSandbox.cpp
     src/scripting/LuaManager.cpp
     src/scripting/LuaModule.cpp
     src/scripting/LuaModuleManager.cpp
