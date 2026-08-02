@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <new>
@@ -50,34 +51,74 @@ public:
         std::size_t failedRangeChecks{};
     };
 
+    struct ModuleInfo {
+        std::uintptr_t baseAddress{};
+        std::size_t imageSize{};
+        std::wstring name;
+        std::wstring path;
+
+        [[nodiscard]] bool IsValid() const noexcept {
+            return baseAddress != 0 && imageSize != 0;
+        }
+
+        [[nodiscard]] std::uintptr_t EndAddress() const noexcept {
+            if (imageSize > std::numeric_limits<std::uintptr_t>::max() - baseAddress) {
+                return 0;
+            }
+            return baseAddress + imageSize;
+        }
+    };
+
+    struct SectionInfo {
+        std::string name;
+        std::uintptr_t address{};
+        std::size_t size{};
+        DWORD characteristics{};
+
+        [[nodiscard]] bool IsReadable() const noexcept {
+            return (characteristics & IMAGE_SCN_MEM_READ) != 0;
+        }
+        [[nodiscard]] bool IsWritable() const noexcept {
+            return (characteristics & IMAGE_SCN_MEM_WRITE) != 0;
+        }
+        [[nodiscard]] bool IsExecutable() const noexcept {
+            return (characteristics & IMAGE_SCN_MEM_EXECUTE) != 0;
+        }
+    };
+
+    struct PatternByte {
+        std::uint8_t value{};
+        bool wildcard{};
+    };
+
+    struct PatternScanOptions {
+        std::string sectionName;
+        std::ptrdiff_t resultOffset{};
+        std::size_t occurrence{};
+        std::size_t chunkSize{1024 * 1024};
+        bool validateMemoryPages{true};
+        bool skipUnreadablePages{true};
+        bool executablePagesOnly{false};
+    };
+
     explicit MemoryManagerAPI(Logger* logger = nullptr);
     ~MemoryManagerAPI();
 
     MemoryManagerAPI(const MemoryManagerAPI&) = delete;
     MemoryManagerAPI& operator=(const MemoryManagerAPI&) = delete;
 
-    bool AttachToWindow(
-        HWND gameWindow,
-        DWORD desiredAccess = QueryProcessAccess);
-    bool AttachToWindowTitle(
-        std::wstring_view windowTitle,
-        DWORD desiredAccess = QueryProcessAccess);
-    bool AttachToProcessId(
-        DWORD processId,
-        DWORD desiredAccess = QueryProcessAccess);
-    bool AttachToProcessName(
-        std::wstring_view executableName,
-        DWORD desiredAccess = QueryProcessAccess);
+    bool AttachToWindow(HWND gameWindow, DWORD desiredAccess = QueryProcessAccess);
+    bool AttachToWindowTitle(std::wstring_view windowTitle, DWORD desiredAccess = QueryProcessAccess);
+    bool AttachToProcessId(DWORD processId, DWORD desiredAccess = QueryProcessAccess);
+    bool AttachToProcessName(std::wstring_view executableName, DWORD desiredAccess = QueryProcessAccess);
     bool RefreshGameWindow() noexcept;
     void DetachProcess() noexcept;
 
     [[nodiscard]] bool IsProcessAttached() const noexcept;
     [[nodiscard]] bool HasGameWindow() const noexcept;
     [[nodiscard]] DWORD ProcessId() const noexcept;
-    [[nodiscard]] std::uintptr_t ModuleBaseAddress(
-        std::wstring_view moduleName = {}) const noexcept;
+    [[nodiscard]] std::uintptr_t ModuleBaseAddress(std::wstring_view moduleName = {}) const noexcept;
 
-    // Borrowed handles remain valid until the next attach, detach, or destruction.
     [[nodiscard]] HANDLE ProcessHandle() const noexcept;
     [[nodiscard]] HWND GameWindow() const noexcept;
 
@@ -113,15 +154,8 @@ public:
             std::as_const(*this).ResolveOffset(baseAddress, offset, bytes));
     }
 
-    bool ReadBytes(
-        const void* address,
-        void* destination,
-        std::size_t bytes) const noexcept;
-
-    bool WriteBytes(
-        void* address,
-        const void* source,
-        std::size_t bytes) noexcept;
+    bool ReadBytes(const void* address, void* destination, std::size_t bytes) const noexcept;
+    bool WriteBytes(void* address, const void* source, std::size_t bytes) noexcept;
 
     template <typename T>
     [[nodiscard]] std::optional<T> Read(const void* address) const noexcept {
@@ -158,6 +192,48 @@ public:
         return address != nullptr && Write<T>(address, value);
     }
 
+    [[nodiscard]] std::vector<ModuleInfo> Modules() const;
+    [[nodiscard]] std::optional<ModuleInfo> FindModule(std::wstring_view moduleName = {}) const;
+    [[nodiscard]] std::vector<SectionInfo> ModuleSections(const ModuleInfo& module) const;
+    [[nodiscard]] static std::vector<PatternByte> ParsePattern(std::string_view pattern);
+
+    [[nodiscard]] std::optional<std::uintptr_t> FindPattern(
+        const ModuleInfo& module,
+        std::string_view pattern,
+        const PatternScanOptions& options = {}) const;
+
+    [[nodiscard]] std::optional<std::uintptr_t> FindPattern(
+        std::wstring_view moduleName,
+        std::string_view pattern,
+        const PatternScanOptions& options = {}) const;
+
+    [[nodiscard]] std::vector<std::uintptr_t> FindAllPatterns(
+        const ModuleInfo& module,
+        std::string_view pattern,
+        const PatternScanOptions& options = {}) const;
+
+    [[nodiscard]] std::optional<std::uintptr_t> FindPatternInRange(
+        std::uintptr_t startAddress,
+        std::size_t rangeSize,
+        std::string_view pattern,
+        const PatternScanOptions& options = {}) const;
+
+    [[nodiscard]] std::optional<std::uintptr_t> ResolveRelativeAddress(
+        std::uintptr_t instructionAddress,
+        std::size_t displacementOffset,
+        std::size_t instructionSize) const noexcept;
+
+    [[nodiscard]] std::optional<std::uintptr_t> FindRelativeAddress(
+        const ModuleInfo& module,
+        std::string_view pattern,
+        std::size_t displacementOffset,
+        std::size_t instructionSize,
+        const PatternScanOptions& options = {}) const;
+
+    [[nodiscard]] std::optional<std::uintptr_t> DereferenceRemote(
+        std::uintptr_t address,
+        std::size_t count = 1) const noexcept;
+
     [[nodiscard]] std::vector<AllocationInfo> Snapshot() const;
     [[nodiscard]] Statistics Stats() const noexcept;
 
@@ -174,11 +250,33 @@ private:
         const void* address,
         std::size_t bytes) const noexcept;
 
-    bool AttachToProcess(
-        DWORD processId,
-        HWND gameWindow,
-        DWORD desiredAccess);
+    bool AttachToProcess(DWORD processId, HWND gameWindow, DWORD desiredAccess);
     [[nodiscard]] static HWND FindTopLevelWindow(DWORD processId) noexcept;
+
+    [[nodiscard]] std::vector<std::uintptr_t> ScanPatternRange(
+        std::uintptr_t startAddress,
+        std::size_t rangeSize,
+        const std::vector<PatternByte>& pattern,
+        const PatternScanOptions& options,
+        bool stopAfterOccurrence) const;
+
+    [[nodiscard]] static std::vector<std::uintptr_t> ScanPatternBuffer(
+        const std::uint8_t* buffer,
+        std::size_t bufferSize,
+        std::uintptr_t bufferAddress,
+        const std::vector<PatternByte>& pattern);
+
+    [[nodiscard]] bool ReadProcessBuffer(
+        std::uintptr_t address,
+        void* destination,
+        std::size_t size,
+        std::size_t& bytesRead) const noexcept;
+
+    [[nodiscard]] static bool IsReadableProtection(DWORD protection) noexcept;
+    [[nodiscard]] static bool IsExecutableProtection(DWORD protection) noexcept;
+    [[nodiscard]] static bool AddressAdditionOverflows(
+        std::uintptr_t address,
+        std::size_t amount) noexcept;
 
     void LogInfo(std::string_view message) const;
     void LogWarning(std::string_view message) const;
