@@ -9,6 +9,7 @@
 #include "features/FeatureRegistry.hpp"
 #include "filesystem/FileSystemManager.hpp"
 #include "logging/Logger.hpp"
+#include "providers/GameProvider.hpp"
 #include "scripting/LuaManager.hpp"
 #include "ui/FontManager.hpp"
 #include "ui/ImageLoader.hpp"
@@ -74,6 +75,8 @@ private:
     logging::LoggerApi logger_;
     Logger memoryLogger_;
     MemoryManagerAPI memory_;
+    Logger gameProviderLogger_;
+    providers::GameProvider gameProvider_;
     TaskQueue tasks_;
     features::FeatureRegistry features_;
     AppSettings settings_;

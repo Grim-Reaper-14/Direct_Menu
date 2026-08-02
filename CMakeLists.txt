@@ -117,6 +117,7 @@ add_executable(Direct_Menu WIN32
     src/features/FeatureRegistry.cpp
     src/filesystem/FileSystemManager.cpp
     src/logging/Logger.cpp
+    src/providers/GameProvider.cpp
     src/scripting/LuaBindingLibrary.cpp
     src/scripting/LuaCommands.cpp
     src/scripting/LuaEvents.cpp

@@ -5,6 +5,7 @@
 #include "core/MemoryManagerAPI.hpp"
 #include "features/FeatureRegistry.hpp"
 #include "filesystem/FileSystemManager.hpp"
+#include "providers/GameProvider.hpp"
 #include "scripting/LuaManager.hpp"
 #include "ui/FontManager.hpp"
 #include "ui/ImageLoader.hpp"
@@ -85,6 +86,7 @@ Menu::Menu(
     const filesystem::FileSystemManager& fileSystem,
     scripting::LuaManager& lua,
     core::MemoryManagerAPI& memory,
+    providers::GameProvider& gameProvider,
     FontManager& fonts,
     ImageLoader& brandBackground,
     ImageLoader& brandHeader,
@@ -101,6 +103,7 @@ Menu::Menu(
       fileSystem_(fileSystem),
       lua_(lua),
       memory_(memory),
+      gameProvider_(gameProvider),
       fonts_(fonts),
       brandBackground_(brandBackground),
       brandHeader_(brandHeader),
@@ -719,7 +722,25 @@ void Menu::RenderFeature(features::Feature& feature) {
     case features::FeatureKind::Toggle: {
         bool* value = std::get_if<bool>(&feature.value);
         if (value != nullptr) {
-            ImGui::Checkbox(feature.label.c_str(), value);
+            const bool previousValue = *value;
+            if (ImGui::Checkbox(feature.label.c_str(), value) &&
+                feature.id == "self.invincibility") {
+                std::string errorMessage;
+                if (!gameProvider_.SetInvincibility(*value, errorMessage)) {
+                    *value = previousValue;
+                    notifications_.Push(
+                        errorMessage.empty()
+                            ? "The invincibility provider rejected the request."
+                            : errorMessage,
+                        NotificationKind::Error,
+                        6.0);
+                } else {
+                    notifications_.Push(
+                        *value ? "Invincibility enabled."
+                               : "Invincibility disabled.",
+                        NotificationKind::Success);
+                }
+            }
         }
         break;
     }

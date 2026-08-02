@@ -34,6 +34,10 @@ namespace smf::scripting {
 class LuaManager;
 }
 
+namespace smf::providers {
+class GameProvider;
+}
+
 namespace smf::ui {
 
 class FontManager;
@@ -77,6 +81,7 @@ public:
         const filesystem::FileSystemManager& fileSystem,
         scripting::LuaManager& lua,
         core::MemoryManagerAPI& memory,
+        providers::GameProvider& gameProvider,
         FontManager& fonts,
         ImageLoader& brandBackground,
         ImageLoader& brandHeader,
@@ -135,6 +140,7 @@ private:
     const filesystem::FileSystemManager& fileSystem_;
     scripting::LuaManager& lua_;
     core::MemoryManagerAPI& memory_;
+    providers::GameProvider& gameProvider_;
     FontManager& fonts_;
     ImageLoader& brandBackground_;
     ImageLoader& brandHeader_;

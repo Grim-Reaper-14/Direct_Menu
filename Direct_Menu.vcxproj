@@ -126,6 +126,7 @@
     <ClCompile Include="src\logging\Logger.cpp">
       <ObjectFileName>$(IntDir)LoggingLogger.obj</ObjectFileName>
     </ClCompile>
+    <ClCompile Include="src\providers\GameProvider.cpp" />
     <ClCompile Include="src\scripting\LuaBindingLibrary.cpp" />
     <ClCompile Include="src\scripting\LuaCommands.cpp" />
     <ClCompile Include="src\scripting\LuaEvents.cpp" />

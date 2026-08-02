@@ -37,6 +37,8 @@ constexpr int ClientHeight = 720;
 Application::Application()
     : memoryLogger_(logger_, "MemoryManager"),
       memory_(&memoryLogger_),
+      gameProviderLogger_(logger_, "GameProvider"),
+      gameProvider_(&gameProviderLogger_),
       configs_(fileSystem_, logger_),
       lua_(logger_),
       fonts_(logger_),
@@ -117,6 +119,7 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
         fileSystem_,
         lua_,
         memory_,
+        gameProvider_,
         fonts_,
         brandBackground_,
         brandHeader_,
@@ -419,7 +422,9 @@ void Application::RegisterBuiltInFeatures() {
         "self.invincibility",
         "Self",
         "Invincibility",
-        "Example self-state toggle for the native provider API.");
+        "Invincibility request routed through GameProvider::SetInvincibility.",
+        false,
+        false);
     features_.RegisterToggle(
         "self.never_wanted",
         "Self",
