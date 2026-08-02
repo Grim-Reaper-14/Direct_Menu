@@ -1,8 +1,18 @@
 #pragma once
 
+#include "scripting/LuaBindingLibrary.hpp"
+#include "scripting/LuaCommands.hpp"
+#include "scripting/LuaEvents.hpp"
+#include "scripting/LuaModuleManager.hpp"
+#include "scripting/LuaScriptsManager.hpp"
+#include "scripting/LuaTimerManager.hpp"
+#include "scripting/LuaUI.hpp"
+
+#include <sol/sol.hpp>
+
 #include <filesystem>
 #include <string>
-#include <vector>
+#include <string_view>
 
 namespace smf::features {
 class FeatureRegistry;
@@ -14,32 +24,55 @@ class LoggerApi;
 
 namespace smf::scripting {
 
-struct ScriptRecord {
-    std::string name;
-    std::filesystem::path path;
-};
-
 class LuaManager {
 public:
     explicit LuaManager(logging::LoggerApi& logger);
+    ~LuaManager();
+
+    LuaManager(const LuaManager&) = delete;
+    LuaManager& operator=(const LuaManager&) = delete;
 
     void Initialize(std::filesystem::path scriptsDirectory);
+    void Shutdown() noexcept;
+    void Update();
+    void Draw();
     void Refresh();
 
     [[nodiscard]] const std::vector<ScriptRecord>& Scripts() const noexcept;
     [[nodiscard]] bool RuntimeReady() const noexcept;
     [[nodiscard]] std::string StatusText() const;
+    [[nodiscard]] std::string ActiveScriptName() const;
 
-    // Future integration point. Native features should be registered and tested
-    // before a Lua runtime calls through this boundary.
     void BindFeatureRegistry(features::FeatureRegistry& registry);
 
+    [[nodiscard]] LuaScriptsManager& ScriptsManager() noexcept;
+    [[nodiscard]] LuaModuleManager& Modules() noexcept;
+    [[nodiscard]] LuaCommands& Commands() noexcept;
+    [[nodiscard]] LuaBindingLibrary& Bindings() noexcept;
+    [[nodiscard]] LuaEvents& Events() noexcept;
+    [[nodiscard]] LuaTimerManager& Timers() noexcept;
+    [[nodiscard]] LuaUI& UI() noexcept;
+    [[nodiscard]] sol::state& State() noexcept;
+
 private:
+    void OpenLibraries();
+    void InstallFrameHook();
+    void RemoveFrameHook() noexcept;
+    void SetActiveScript(std::string_view owner);
+    void CleanupOwnedResources(std::string_view owner);
+
     logging::LoggerApi& logger_;
-    std::filesystem::path scriptsDirectory_;
-    std::vector<ScriptRecord> scripts_;
-    features::FeatureRegistry* registry_{nullptr};
+    sol::state luaState_;
+    LuaCommands commands_;
+    LuaEvents events_;
+    LuaTimerManager timers_;
+    LuaUI ui_;
+    LuaBindingLibrary bindings_;
+    LuaScriptsManager scripts_;
+    LuaModuleManager modules_;
+    std::string activeScriptName_;
+    unsigned int imguiHookId_{0};
+    bool initialized_{false};
 };
 
 } // namespace smf::scripting
-
