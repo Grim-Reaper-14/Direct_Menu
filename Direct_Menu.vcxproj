@@ -215,8 +215,8 @@
 
   <ItemGroup>
     <RuntimeAsset Include="assets\direct_menu_neon_background.jpg" Condition="Exists('assets\direct_menu_neon_background.jpg')" />
-    <RuntimeAsset Include="assets\direct_menu_background.jpg" Condition="Exists('assets\direct_menu_background.jpg')" />
-    <RuntimeAsset Include="assets\direct_menu_header.jpg" Condition="Exists('assets\direct_menu_header.jpg')" />
+    <RuntimeAsset Include="assets\direct_menu_background.png" Condition="Exists('assets\direct_menu_background.png')" />
+    <RuntimeAsset Include="assets\direct_menu_header.png" Condition="Exists('assets\direct_menu_header.png')" />
     <RuntimeAsset Include="assets\grim_reaper_icon.png" Condition="Exists('assets\grim_reaper_icon.png')" />
   </ItemGroup>
 

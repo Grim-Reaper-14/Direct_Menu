@@ -350,11 +350,11 @@ bool Application::InitializeGraphics(std::string& errorMessage) {
             std::filesystem::path{executablePath.data()}.parent_path() / L"assets";
 
         const std::filesystem::path defaultBackground =
-            assetsDirectory / L"direct_menu_background.jpg";
+            assetsDirectory / L"direct_menu_background.png";
         const std::filesystem::path legacyBackground =
             assetsDirectory / L"direct_menu_neon_background.jpg";
         const std::filesystem::path defaultHeader =
-            assetsDirectory / L"direct_menu_header.jpg";
+            assetsDirectory / L"direct_menu_header.png";
         const std::filesystem::path defaultIcon =
             assetsDirectory / L"grim_reaper_icon.png";
 

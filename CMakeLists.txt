@@ -184,8 +184,8 @@ add_custom_command(TARGET Direct_Menu POST_BUILD
 
 set(DIRECT_MENU_RUNTIME_ASSETS
     direct_menu_neon_background.jpg
-    direct_menu_background.jpg
-    direct_menu_header.jpg
+    direct_menu_background.png
+    direct_menu_header.png
     grim_reaper_icon.png
 )
 
