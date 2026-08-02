@@ -38,6 +38,8 @@ void LuaScriptsManager::Refresh() {
             record.author = existing->author;
             record.version = existing->version;
             record.description = existing->description;
+            record.apiVersion = existing->apiVersion;
+            record.permissions = existing->permissions;
             record.lastError = existing->lastError;
         }
         discovered.push_back(std::move(record));
