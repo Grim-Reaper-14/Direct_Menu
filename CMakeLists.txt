@@ -11,6 +11,8 @@ if(NOT WIN32)
     message(FATAL_ERROR "Direct_Menu targets Windows 10/11 and Direct3D 12.")
 endif()
 
+enable_language(RC)
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -102,11 +104,13 @@ target_compile_definitions(imgui PUBLIC
 )
 
 add_executable(Direct_Menu WIN32
+    src/resources/Direct_Menu.rc
     src/main.cpp
     src/backend/D3D12Backend.cpp
     src/config/ConfigManager.cpp
     src/core/Application.cpp
     src/core/File_System_Monitor.cpp
+    src/core/ImGuiStyleSettings.cpp
     src/core/Logger.cpp
     src/core/MemoryManagerAPI.cpp
     src/core/TaskQueue.cpp
@@ -182,6 +186,7 @@ set(DIRECT_MENU_RUNTIME_ASSETS
     direct_menu_neon_background.jpg
     direct_menu_background.jpg
     direct_menu_header.jpg
+    grim_reaper_icon.png
 )
 
 foreach(asset_name IN LISTS DIRECT_MENU_RUNTIME_ASSETS)
@@ -211,4 +216,13 @@ if(BUILD_TESTING)
     target_include_directories(TaskQueueSmoke PRIVATE src)
     target_compile_features(TaskQueueSmoke PRIVATE cxx_std_20)
     add_test(NAME TaskQueueSmoke COMMAND TaskQueueSmoke)
+
+    add_executable(ImGuiStyleSettingsSmoke
+        tests/ImGuiStyleSettingsSmoke.cpp
+        src/core/ImGuiStyleSettings.cpp
+    )
+    target_include_directories(ImGuiStyleSettingsSmoke PRIVATE src)
+    target_compile_features(ImGuiStyleSettingsSmoke PRIVATE cxx_std_20)
+    target_link_libraries(ImGuiStyleSettingsSmoke PRIVATE imgui)
+    add_test(NAME ImGuiStyleSettingsSmoke COMMAND ImGuiStyleSettingsSmoke)
 endif()

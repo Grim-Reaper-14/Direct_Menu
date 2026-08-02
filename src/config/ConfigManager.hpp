@@ -39,8 +39,11 @@ public:
         std::string& errorMessage) const;
 
     [[nodiscard]] std::vector<std::string> Available() const;
+    [[nodiscard]] std::string StartupConfiguration() const;
 
 private:
+    bool RememberStartupConfiguration(std::string_view name) const;
+
     const filesystem::FileSystemManager& fileSystem_;
     logging::LoggerApi& logger_;
 };

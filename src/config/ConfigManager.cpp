@@ -51,7 +51,7 @@ bool ConfigManager::Save(
     }
 
     output << "# Direct_Menu configuration\n";
-    output << "version=1\n";
+    output << "version=2\n";
     output << "theme=" << settings.theme << '\n';
     output << "font=" << settings.font << '\n';
     output << "font_scale=" << std::fixed << std::setprecision(3)
@@ -61,6 +61,7 @@ bool ConfigManager::Save(
            << (settings.imageBackgroundEnabled ? 1 : 0) << '\n';
     output << "image_opacity=" << std::fixed << std::setprecision(3)
            << settings.imageBackgroundOpacity << '\n';
+    settings.imguiStyle.Write(output);
 
     const auto registryValues = registry.SaveableValues();
     const std::map<std::string, std::string> sortedValues{
@@ -74,6 +75,13 @@ bool ConfigManager::Save(
     output.flush();
     if (!output.good()) {
         errorMessage = "The configuration file could not be completely written.";
+        logger_.Error(errorMessage);
+        return false;
+    }
+
+    if (!RememberStartupConfiguration(name)) {
+        errorMessage =
+            "The configuration was saved, but it could not be selected for startup.";
         logger_.Error(errorMessage);
         return false;
     }
@@ -99,6 +107,7 @@ bool ConfigManager::Load(
 
     std::string line;
     std::size_t ignoredValues = 0;
+    settings.imguiStyle.Reset();
 
     while (std::getline(input, line)) {
         line = Trim(std::move(line));
@@ -115,13 +124,15 @@ bool ConfigManager::Load(
         const std::string key = Trim(line.substr(0, separator));
         const std::string value = Trim(line.substr(separator + 1));
 
-        if (key == "theme") {
+        if (key == "version") {
+            continue;
+        } else if (key == "theme") {
             settings.theme = value;
         } else if (key == "font") {
             settings.font = value;
         } else if (key == "font_scale") {
             try {
-                settings.fontScale = std::clamp(std::stof(value), 0.75F, 1.50F);
+                settings.fontScale = std::clamp(std::stof(value), 0.30F, 2.00F);
             } catch (...) {
                 ++ignoredValues;
             }
@@ -135,6 +146,10 @@ bool ConfigManager::Load(
                 settings.imageBackgroundOpacity =
                     std::clamp(std::stof(value), 0.05F, 1.0F);
             } catch (...) {
+                ++ignoredValues;
+            }
+        } else if (key.starts_with("imgui.")) {
+            if (!settings.imguiStyle.SetValue(key.substr(6), value)) {
                 ++ignoredValues;
             }
         } else if (key.starts_with("feature.")) {
@@ -157,12 +172,40 @@ bool ConfigManager::Load(
     }
     logger_.Info(message.str());
 
+    if (!RememberStartupConfiguration(name)) {
+        logger_.Warning(
+            "The loaded configuration could not be selected for startup.");
+    }
+
     errorMessage.clear();
     return true;
 }
 
 std::vector<std::string> ConfigManager::Available() const {
     return fileSystem_.ConfigurationNames();
+}
+
+std::string ConfigManager::StartupConfiguration() const {
+    std::ifstream input{fileSystem_.Root() / L"active_configuration.txt"};
+    std::string name;
+    if (input.is_open() && std::getline(input, name)) {
+        name = filesystem::FileSystemManager::SanitizeFileStem(
+            Trim(std::move(name)));
+        if (!name.empty()) return name;
+    }
+    return "default";
+}
+
+bool ConfigManager::RememberStartupConfiguration(
+    const std::string_view name) const {
+    std::ofstream output{
+        fileSystem_.Root() / L"active_configuration.txt",
+        std::ios::out | std::ios::trunc};
+    if (!output.is_open()) return false;
+
+    output << filesystem::FileSystemManager::SanitizeFileStem(name) << '\n';
+    output.flush();
+    return output.good();
 }
 
 } // namespace smf::config

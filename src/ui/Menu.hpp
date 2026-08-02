@@ -46,6 +46,9 @@ enum class MenuPage {
     Vehicle,
     VehicleSpawn,
     Lsc,
+    Network,
+    OnlineSessions,
+    Misc,
     Settings,
     Lua,
     StyleEditor,
@@ -72,6 +75,7 @@ public:
         FontManager& fonts,
         ImageLoader& brandBackground,
         ImageLoader& brandHeader,
+        ImageLoader& brandIcon,
         ImageLoader& images,
         NotificationCenter& notifications,
         ThemeManager& themes,
@@ -106,6 +110,9 @@ private:
     void RenderVehicle();
     void RenderVehicleSpawn();
     void RenderLsc();
+    void RenderNetwork();
+    void RenderOnlineSessions();
+    void RenderMisc();
     void RenderSettings();
     void RenderLua();
     void RenderStyleEditor();
@@ -125,6 +132,7 @@ private:
     FontManager& fonts_;
     ImageLoader& brandBackground_;
     ImageLoader& brandHeader_;
+    ImageLoader& brandIcon_;
     ImageLoader& images_;
     NotificationCenter& notifications_;
     ThemeManager& themes_;

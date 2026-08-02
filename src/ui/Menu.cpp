@@ -86,6 +86,7 @@ Menu::Menu(
     FontManager& fonts,
     ImageLoader& brandBackground,
     ImageLoader& brandHeader,
+    ImageLoader& brandIcon,
     ImageLoader& images,
     NotificationCenter& notifications,
     ThemeManager& themes,
@@ -100,12 +101,28 @@ Menu::Menu(
       fonts_(fonts),
       brandBackground_(brandBackground),
       brandHeader_(brandHeader),
+      brandIcon_(brandIcon),
       images_(images),
       notifications_(notifications),
       themes_(themes),
       settings_(settings),
       callbacks_(std::move(callbacks)) {
     RefreshConfigurationNames();
+
+    const std::string startupConfiguration =
+        configs_.StartupConfiguration();
+    if (std::ranges::find(configurationNames_, startupConfiguration) !=
+        configurationNames_.end()) {
+        CopyToBuffer(configurationName_, startupConfiguration);
+        std::string error;
+        if (configs_.Load(
+                startupConfiguration,
+                settings_,
+                features_,
+                error)) {
+            ApplyLoadedSettings();
+        }
+    }
 }
 
 void Menu::RenderWelcome() {
@@ -260,6 +277,15 @@ void Menu::RenderMain() {
         case MenuPage::Lsc:
             RenderLsc();
             break;
+        case MenuPage::Network:
+            RenderNetwork();
+            break;
+        case MenuPage::OnlineSessions:
+            RenderOnlineSessions();
+            break;
+        case MenuPage::Misc:
+            RenderMisc();
+            break;
         case MenuPage::Settings:
             RenderSettings();
             break;
@@ -326,6 +352,12 @@ std::string_view Menu::PageTitle(const MenuPage page) {
         return "Vehicle Spawn";
     case MenuPage::Lsc:
         return "LSC";
+    case MenuPage::Network:
+        return "Network";
+    case MenuPage::OnlineSessions:
+        return "Online Sessions";
+    case MenuPage::Misc:
+        return "Miscellaneous";
     case MenuPage::Settings:
         return "Settings";
     case MenuPage::Lua:
@@ -362,6 +394,12 @@ std::string_view Menu::PageDescription(const MenuPage page) {
         return "Enter a vehicle model name, validate it, and submit the spawn request from this page.";
     case MenuPage::Lsc:
         return "Adjust the stored vehicle customization values used by the LSC section.";
+    case MenuPage::Network:
+        return "Review local network-interface preferences and open the nested Online Sessions page.";
+    case MenuPage::OnlineSessions:
+        return "Manage saved session-list preferences for a future legitimate provider.";
+    case MenuPage::Misc:
+        return "Adjust saved quality-of-life preferences for the Direct Menu interface.";
     case MenuPage::Settings:
         return "Manage Lua, themes, backgrounds, fonts, configurations, visibility, and application controls.";
     case MenuPage::Lua:
@@ -505,11 +543,46 @@ void Menu::DrawNeonHeader() const {
         }
     }
 
-    constexpr std::string_view title{"DIRECT // MENU"};
+    constexpr std::string_view title{"DIRECT MENU"};
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImFont* font = ImGui::GetFont();
     const float size = ImGui::GetFontSize() * 1.34F;
     const ImVec2 position = ImGui::GetCursorScreenPos();
+
+    const ImVec2 textSize = font->CalcTextSizeA(
+        size,
+        FLT_MAX,
+        0.0F,
+        title.data(),
+        title.data() + title.size());
+    const bool showIcons = brandIcon_.HasImage();
+    const float iconSize =
+        showIcons ? std::max(textSize.y + 8.0F, 30.0F) : 0.0F;
+    const float iconSpacing = showIcons ? 7.0F : 0.0F;
+    const float totalWidth =
+        textSize.x + (iconSize + iconSpacing) * 2.0F;
+    const float totalHeight = std::max(textSize.y, iconSize);
+    const ImVec2 textPosition{
+        position.x + iconSize + iconSpacing,
+        position.y + (totalHeight - textSize.y) * 0.5F};
+
+    if (showIcons) {
+        const backend::TextureResource& texture = brandIcon_.Texture();
+        const ImTextureID textureId =
+            static_cast<ImTextureID>(texture.gpuDescriptor.ptr);
+        drawList->AddImage(
+            textureId,
+            position,
+            {position.x + iconSize, position.y + iconSize});
+        const ImVec2 rightIconPosition{
+            textPosition.x + textSize.x + iconSpacing,
+            position.y};
+        drawList->AddImage(
+            textureId,
+            rightIconPosition,
+            {rightIconPosition.x + iconSize,
+             rightIconPosition.y + iconSize});
+    }
 
     for (const ImVec2 offset : {
              ImVec2{-2.0F, 0.0F},
@@ -519,7 +592,7 @@ void Menu::DrawNeonHeader() const {
         drawList->AddText(
             font,
             size,
-            {position.x + offset.x, position.y + offset.y},
+            {textPosition.x + offset.x, textPosition.y + offset.y},
             WithAlpha(accent, 0.20F),
             title.data(),
             title.data() + title.size());
@@ -527,7 +600,7 @@ void Menu::DrawNeonHeader() const {
     drawList->AddText(
         font,
         size,
-        position,
+        textPosition,
         WithAlpha(accent, 1.0F),
         title.data(),
         title.data() + title.size());
@@ -539,24 +612,18 @@ void Menu::DrawNeonHeader() const {
     drawList->AddText(
         font,
         size,
-        {position.x, position.y - 1.0F},
+        {textPosition.x, textPosition.y - 1.0F},
         WithAlpha(highlight, 0.88F),
         title.data(),
         title.data() + title.size());
 
-    const ImVec2 textSize = font->CalcTextSizeA(
-        size,
-        FLT_MAX,
-        0.0F,
-        title.data(),
-        title.data() + title.size());
-    const float lineY = position.y + textSize.y + 3.0F;
+    const float lineY = position.y + totalHeight + 3.0F;
     drawList->AddLine(
         {position.x, lineY},
-        {position.x + textSize.x, lineY},
+        {position.x + totalWidth, lineY},
         WithAlpha(accent, 0.75F),
         1.5F);
-    ImGui::Dummy({textSize.x, textSize.y + 7.0F});
+    ImGui::Dummy({totalWidth, totalHeight + 7.0F});
 }
 
 void Menu::DrawBottomHeader() const {
@@ -703,7 +770,10 @@ void Menu::RenderHome() {
             "Weapons",
             "Unlocks",
             "Vehicle",
-            "LSC"
+            "LSC",
+            "Network",
+            "Online Sessions",
+            "Misc"
         };
 
         for (const std::string_view category : categories) {
@@ -736,6 +806,8 @@ void Menu::RenderHome() {
     SubmenuButton("Teleport", MenuPage::Teleport);
     SubmenuButton("Unlocks", MenuPage::Unlocks);
     SubmenuButton("Vehicle", MenuPage::Vehicle);
+    SubmenuButton("Network", MenuPage::Network);
+    SubmenuButton("Miscellaneous", MenuPage::Misc);
     ImGui::Spacing();
     SubmenuButton("Settings", MenuPage::Settings);
 }
@@ -820,6 +892,58 @@ void Menu::RenderLsc() {
         notifications_.Push(
             "LSC request captured; no provider is connected.",
             NotificationKind::Info);
+    }
+}
+
+void Menu::RenderNetwork() {
+    RenderInfoCard(
+        "Network options are local interface preferences and diagnostics "
+        "placeholders. This standalone build does not contact a server.");
+
+    SubmenuButton("Online Sessions", MenuPage::OnlineSessions);
+    ImGui::Spacing();
+    ImGui::SeparatorText("Network Diagnostics");
+    RenderFeatureCategory("Network");
+
+    if (ImGui::Button("Refresh Network Status", {-1.0F, 40.0F})) {
+        notifications_.Push(
+            "Network status refresh simulated; no provider is connected.",
+            NotificationKind::Info);
+    }
+}
+
+void Menu::RenderOnlineSessions() {
+    RenderInfoCard(
+        "Online Sessions demonstrates filters and session-list controls. "
+        "It does not enumerate, join, or modify real online sessions.");
+    RenderFeatureCategory("Online Sessions");
+
+    const float buttonWidth =
+        (ImGui::GetContentRegionAvail().x -
+         ImGui::GetStyle().ItemSpacing.x) * 0.5F;
+    if (ImGui::Button("Refresh Sessions", {buttonWidth, 40.0F})) {
+        notifications_.Push(
+            "Session refresh simulated; no provider is connected.",
+            NotificationKind::Info);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Quick Join", {-1.0F, 40.0F})) {
+        notifications_.Push(
+            "Quick Join is a UI placeholder in this standalone build.",
+            NotificationKind::Warning);
+    }
+}
+
+void Menu::RenderMisc() {
+    RenderInfoCard(
+        "Miscellaneous contains saved quality-of-life preferences for the "
+        "menu interface.");
+    RenderFeatureCategory("Misc");
+
+    if (ImGui::Button("Test Notification", {-1.0F, 40.0F})) {
+        notifications_.Push(
+            "Miscellaneous notification test successful.",
+            NotificationKind::Success);
     }
 }
 
@@ -1094,6 +1218,29 @@ void Menu::RenderStyleEditor() {
         "selected Direct Menu theme at any time to recover its intended colors "
         "and spacing.");
 
+    if (ImGui::Button("Save Current Style", {-1.0F, 38.0F})) {
+        fonts_.SyncFromImGui();
+        settings_.theme = std::string{themes_.Current()};
+        settings_.font = std::string{fonts_.Current()};
+        settings_.fontScale = fonts_.Scale();
+        settings_.imguiStyle.Capture(ImGui::GetStyle());
+        std::string error;
+        if (configs_.Save(
+                configurationName_.data(),
+                settings_,
+                features_,
+                error)) {
+            RefreshConfigurationNames();
+            notifications_.Push(
+                std::format(
+                    "ImGui style saved to '{}'.",
+                    configurationName_.data()),
+                NotificationKind::Success);
+        } else {
+            notifications_.Push(error, NotificationKind::Error, 6.0);
+        }
+    }
+
     if (ImGui::Button("Reapply Direct Menu Theme", {-1.0F, 38.0F})) {
         if (themes_.Apply(settings_.theme)) {
             notifications_.Push(
@@ -1254,7 +1401,7 @@ void Menu::RenderFonts() {
 
     ImGui::Spacing();
     float scale = fonts_.Scale();
-    if (ImGui::SliderFloat("Live Font Scale", &scale, 0.75F, 1.50F, "%.2f")) {
+    if (ImGui::SliderFloat("Live Font Scale", &scale, 0.30F, 2.00F, "%.2f")) {
         fonts_.SetScale(scale);
         settings_.fontScale = fonts_.Scale();
     }
@@ -1285,9 +1432,11 @@ void Menu::RenderConfigurations() {
     }
 
     if (ImGui::Button("Save Settings", {-1.0F, 40.0F})) {
+        fonts_.SyncFromImGui();
         settings_.theme = std::string{themes_.Current()};
         settings_.font = std::string{fonts_.Current()};
         settings_.fontScale = fonts_.Scale();
+        settings_.imguiStyle.Capture(ImGui::GetStyle());
         if (images_.HasImage()) {
             settings_.imagePath =
                 filesystem::FileSystemManager::ToUtf8(images_.Path().wstring());
@@ -1333,6 +1482,7 @@ void Menu::ApplyLoadedSettings() {
         settings_.theme = "Midnight";
         themes_.Apply(settings_.theme);
     }
+    settings_.imguiStyle.Apply(ImGui::GetStyle());
 
     if (!fonts_.Select(settings_.font)) {
         settings_.font = "Default";

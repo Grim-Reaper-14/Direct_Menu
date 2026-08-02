@@ -26,6 +26,7 @@ public:
 
     bool Initialize(const std::filesystem::path& filePath);
     void Shutdown();
+    void SetConsoleOutputEnabled(bool enabled) noexcept;
     void Log(LogLevel level, std::string_view message);
 
     void Trace(std::string_view message);
@@ -42,6 +43,7 @@ private:
 
     mutable std::mutex mutex_;
     std::ofstream stream_;
+    bool consoleOutputEnabled_{false};
 };
 
 } // namespace smf::logging

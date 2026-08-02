@@ -1,5 +1,6 @@
 #include "core/Application.hpp"
 
+#include "resources/resource.h"
 #include "ui/Menu.hpp"
 
 #include <imgui.h>
@@ -8,7 +9,9 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdio>
 #include <format>
+#include <iostream>
 #include <string>
 #include <thread>
 
@@ -37,6 +40,7 @@ Application::Application()
       fonts_(logger_),
       brandBackground_(logger_),
       brandHeader_(logger_),
+      brandIcon_(logger_),
       images_(logger_) {
 }
 
@@ -46,6 +50,7 @@ Application::~Application() {
 
 int Application::Run(const HINSTANCE instance, const int showCommand) {
     instance_ = instance;
+    InitializeConsole();
 
     if (!fileSystem_.Initialize(L"Direct_Menu")) {
         MessageBoxW(
@@ -112,6 +117,7 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
         fonts_,
         brandBackground_,
         brandHeader_,
+        brandIcon_,
         images_,
         notifications_,
         themes_,
@@ -193,6 +199,43 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
     return 0;
 }
 
+void Application::InitializeConsole() {
+    if (GetConsoleWindow() == nullptr) {
+        consoleAllocated_ = AllocConsole() != FALSE;
+    }
+
+    if (GetConsoleWindow() == nullptr) {
+        return;
+    }
+
+    SetConsoleTitleW(L"Direct_Menu Logger");
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+
+    FILE* standardOutput = nullptr;
+    FILE* standardError = nullptr;
+    const bool outputReady =
+        freopen_s(&standardOutput, "CONOUT$", "w", stdout) == 0;
+    const bool errorReady =
+        freopen_s(&standardError, "CONOUT$", "w", stderr) == 0;
+    if (outputReady || errorReady) {
+        std::ios::sync_with_stdio(true);
+        std::cout.clear();
+        std::cerr.clear();
+        std::clog.clear();
+        logger_.SetConsoleOutputEnabled(true);
+    }
+}
+
+void Application::ShutdownConsole() noexcept {
+    std::fflush(stdout);
+    std::fflush(stderr);
+    if (consoleAllocated_) {
+        FreeConsole();
+        consoleAllocated_ = false;
+    }
+}
+
 bool Application::CreateApplicationWindow(
     const HINSTANCE instance,
     std::string& errorMessage) {
@@ -204,6 +247,20 @@ bool Application::CreateApplicationWindow(
     windowClass_.lpfnWndProc = WindowProcedure;
     windowClass_.hInstance = instance;
     windowClass_.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    windowClass_.hIcon = static_cast<HICON>(LoadImageW(
+        instance,
+        MAKEINTRESOURCEW(IDI_DIRECT_MENU),
+        IMAGE_ICON,
+        0,
+        0,
+        LR_DEFAULTSIZE | LR_SHARED));
+    windowClass_.hIconSm = static_cast<HICON>(LoadImageW(
+        instance,
+        MAKEINTRESOURCEW(IDI_DIRECT_MENU),
+        IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON),
+        GetSystemMetrics(SM_CYSMICON),
+        LR_SHARED));
     windowClass_.lpszClassName = WindowClassName;
 
     if (RegisterClassExW(&windowClass_) == 0) {
@@ -298,6 +355,8 @@ bool Application::InitializeGraphics(std::string& errorMessage) {
             assetsDirectory / L"direct_menu_neon_background.jpg";
         const std::filesystem::path defaultHeader =
             assetsDirectory / L"direct_menu_header.jpg";
+        const std::filesystem::path defaultIcon =
+            assetsDirectory / L"grim_reaper_icon.png";
 
         std::string imageError;
         if (std::filesystem::exists(defaultBackground)) {
@@ -319,6 +378,14 @@ bool Application::InitializeGraphics(std::string& errorMessage) {
             !brandHeader_.Load(defaultHeader, backend_, imageError)) {
             logger_.Warning(
                 "The included Direct Menu Reaper header could not be loaded: " +
+                imageError);
+        }
+
+        imageError.clear();
+        if (std::filesystem::exists(defaultIcon) &&
+            !brandIcon_.Load(defaultIcon, backend_, imageError)) {
+            logger_.Warning(
+                "The Grim Reaper header icon could not be loaded: " +
                 imageError);
         }
     }
@@ -431,6 +498,64 @@ void Application::RegisterBuiltInFeatures() {
         0,
         6);
 
+    features_.RegisterToggle(
+        "network.show_status",
+        "Network",
+        "Show Connection Status",
+        "Display a local connection-status panel when a provider is added.");
+    features_.RegisterToggle(
+        "network.bandwidth_monitor",
+        "Network",
+        "Bandwidth Monitor",
+        "Display local bandwidth diagnostics when a provider is added.");
+    features_.RegisterInteger(
+        "network.refresh_interval",
+        "Network",
+        "Refresh Interval (seconds)",
+        "Saved refresh interval for future network diagnostics.",
+        5,
+        1,
+        60);
+
+    features_.RegisterToggle(
+        "sessions.join_notifications",
+        "Online Sessions",
+        "Join Notifications",
+        "Show a local notification for future session events.");
+    features_.RegisterToggle(
+        "sessions.friends_only",
+        "Online Sessions",
+        "Friends-Only Filter",
+        "Saved filter preference for a future legitimate session provider.");
+    features_.RegisterInteger(
+        "sessions.maximum_results",
+        "Online Sessions",
+        "Maximum Results",
+        "Saved display limit for future session-list results.",
+        16,
+        1,
+        32);
+
+    features_.RegisterToggle(
+        "misc.show_clock",
+        "Misc",
+        "Show Menu Clock",
+        "Saved preference for a clock in the menu interface.");
+    features_.RegisterToggle(
+        "misc.compact_notifications",
+        "Misc",
+        "Compact Notifications",
+        "Saved preference for smaller notification cards.");
+    features_.RegisterFloat(
+        "misc.interface_scale",
+        "Misc",
+        "Interface Scale",
+        "Saved interface scaling preference for a future layout provider.",
+        1.0F,
+        0.75F,
+        1.50F,
+        0.05F);
+
     logger_.Info("Registered built-in UI placeholder features.");
 }
 
@@ -477,6 +602,9 @@ void Application::Cleanup() {
     if (brandHeader_.HasImage()) {
         brandHeader_.Clear(backend_);
     }
+    if (brandIcon_.HasImage()) {
+        brandIcon_.Clear(backend_);
+    }
     if (brandBackground_.HasImage()) {
         brandBackground_.Clear(backend_);
     }
@@ -500,6 +628,7 @@ void Application::Cleanup() {
 
     logger_.Info("Direct_Menu stopped.");
     logger_.Shutdown();
+    ShutdownConsole();
 }
 
 LRESULT CALLBACK Application::WindowProcedure(
