@@ -10,8 +10,8 @@
 
 namespace smf::scripting {
 
-LuaUI::LuaUI(logging::LoggerApi& logger)
-    : logger_(logger) {
+LuaUI::LuaUI(logging::LoggerApi& logger, OwnerChangedCallback ownerChanged)
+    : logger_(logger), ownerChanged_(std::move(ownerChanged)) {
 }
 
 std::uint64_t LuaUI::AddText(std::string owner, std::string text) {
@@ -57,13 +57,17 @@ void LuaUI::Draw() {
             break;
         case WidgetType::Button:
             if (ImGui::Button(widget.label.c_str()) && widget.callback.valid()) {
+                if (ownerChanged_) ownerChanged_(widget.owner);
                 const auto result = widget.callback();
+                if (ownerChanged_) ownerChanged_({});
                 if (!result.valid()) { const sol::error error = result; logger_.Error(std::format("Lua UI button '{}' owned by '{}' failed: {}", widget.label, widget.owner, error.what())); }
             }
             break;
         case WidgetType::Checkbox:
             if (ImGui::Checkbox(widget.label.c_str(), &widget.value) && widget.callback.valid()) {
+                if (ownerChanged_) ownerChanged_(widget.owner);
                 const auto result = widget.callback(widget.value);
+                if (ownerChanged_) ownerChanged_({});
                 if (!result.valid()) { const sol::error error = result; logger_.Error(std::format("Lua UI checkbox '{}' owned by '{}' failed: {}", widget.label, widget.owner, error.what())); }
             }
             break;
