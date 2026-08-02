@@ -14,21 +14,14 @@
 #include <string>
 #include <string_view>
 
-namespace smf::features {
-class FeatureRegistry;
-}
-
-namespace smf::logging {
-class LoggerApi;
-}
-
+namespace smf::features { class FeatureRegistry; }
+namespace smf::logging { class LoggerApi; }
 namespace smf::scripting {
 
 class LuaManager {
 public:
     explicit LuaManager(logging::LoggerApi& logger);
     ~LuaManager();
-
     LuaManager(const LuaManager&) = delete;
     LuaManager& operator=(const LuaManager&) = delete;
 
@@ -67,9 +60,9 @@ private:
     LuaEvents events_;
     LuaTimerManager timers_;
     LuaUI ui_;
+    LuaModuleManager modules_;
     LuaBindingLibrary bindings_;
     LuaScriptsManager scripts_;
-    LuaModuleManager modules_;
     std::string activeScriptName_;
     unsigned int imguiHookId_{0};
     bool initialized_{false};
