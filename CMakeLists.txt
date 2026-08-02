@@ -109,6 +109,7 @@ add_executable(Direct_Menu WIN32
     src/core/Application.cpp
     src/core/File_System_Monitor.cpp
     src/core/Logger.cpp
+    src/core/MemoryManagerAPI.cpp
     src/core/TaskQueue.cpp
     src/features/FeatureRegistry.cpp
     src/filesystem/FileSystemManager.cpp
