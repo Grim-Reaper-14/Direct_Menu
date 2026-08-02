@@ -64,7 +64,7 @@ void LuaScriptsManager::Update() {
     }
     for (const auto& name : changed) {
         logger_.Info("Lua script changed on disk; hot reloading: " + name);
-        Reload(name);
+        (void)Reload(name);
     }
 }
 
@@ -95,7 +95,7 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
     }
 
     sol::protected_function function = loaded;
-    function.set_environment(environment);
+    sol::set_environment(environment, function);
     const sol::protected_function_result result = function();
     ownerChanged_({});
     if (!result.valid()) {
@@ -105,6 +105,17 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
         cleanup_(script.name);
         logger_.Error(std::format("Lua execution failed for '{}': {}", script.name, error.what()));
         return false;
+    }
+
+    if (script.author.empty()) {
+        script.author = environment.get_or("SCRIPT_AUTHOR", std::string{});
+    }
+    if (script.version.empty()) {
+        script.version = environment.get_or("SCRIPT_VERSION", std::string{});
+    }
+    if (script.description.empty()) {
+        script.description =
+            environment.get_or("SCRIPT_DESCRIPTION", std::string{});
     }
 
     runtimeScripts_.insert_or_assign(script.name, RuntimeScript{.environment = std::move(environment)});
@@ -148,14 +159,14 @@ bool LuaScriptsManager::Unload(const std::string_view name) {
 bool LuaScriptsManager::Reload(const std::string_view name) {
     ScriptRecord* script = Find(name);
     if (!script) return false;
-    if (script->loaded) Unload(name);
+    if (script->loaded) (void)Unload(name);
     return Load(name);
 }
 
 void LuaScriptsManager::UnloadAll() {
     std::vector<std::string> loaded;
     for (const auto& script : scripts_) if (script.loaded) loaded.push_back(script.name);
-    for (const auto& name : loaded) Unload(name);
+    for (const auto& name : loaded) (void)Unload(name);
     runtimeScripts_.clear();
     writeTimes_.clear();
 }

@@ -3,7 +3,6 @@
 #include "logging/Logger.hpp"
 
 #include <imgui.h>
-#include <imgui_internal.h>
 
 #include <utility>
 
@@ -26,6 +25,7 @@ LuaManager::LuaManager(logging::LoggerApi& logger)
           modules_,
           fileSystemSandbox_,
           [this] { return ActiveScriptName(); },
+          [this] { return drawingFrame_; },
           [this] { Refresh(); },
           [this](const std::string_view owner, const std::string_view permission) {
               return scripts_.HasPermission(owner, permission);
@@ -56,6 +56,10 @@ LuaManager::~LuaManager() { Shutdown(); }
 
 void LuaManager::Initialize(std::filesystem::path scriptsDirectory) {
     if (initialized_) return;
+    if (ImGui::GetCurrentContext() == nullptr) {
+        logger_.Error("Lua initialization requires an active ImGui context.");
+        return;
+    }
 
     const std::filesystem::path sandboxRoot = scriptsDirectory / ".sandbox";
     if (!fileSystemSandbox_.Initialize(sandboxRoot)) {
@@ -67,10 +71,11 @@ void LuaManager::Initialize(std::filesystem::path scriptsDirectory) {
     bindings_.RegisterCoreBindings();
     initialized_ = true;
     for (const ScriptRecord& script : scripts_.Scripts()) {
-        if (script.enabled && script.autoLoad) scripts_.Load(script.name);
+        if (script.enabled && script.autoLoad) (void)scripts_.Load(script.name);
     }
-    InstallFrameHook();
-    logger_.Info("Lua 5.4 runtime and sol2 API v2.1 binding layer initialized.");
+    logger_.Info(
+        "Lua 5.4 runtime and sol2 API v2.1 binding layer initialized. Script folder: " +
+        scripts_.Directory().string());
 }
 
 void LuaManager::OpenLibraries() {
@@ -84,30 +89,8 @@ void LuaManager::OpenLibraries() {
     luaState_["loadfile"] = sol::nil;
 }
 
-void LuaManager::InstallFrameHook() {
-    if (imguiHookId_ != 0 || ImGui::GetCurrentContext() == nullptr) return;
-    ImGuiContextHook hook{};
-    hook.Type = ImGuiContextHookType_NewFramePost;
-    hook.UserData = this;
-    hook.Callback = [](ImGuiContext*, ImGuiContextHook* contextHook) {
-        auto* manager = static_cast<LuaManager*>(contextHook->UserData);
-        if (!manager) return;
-        manager->Update();
-        manager->Draw();
-    };
-    imguiHookId_ = ImGui::AddContextHook(ImGui::GetCurrentContext(), &hook);
-    logger_.Debug("Lua per-frame ImGui hook installed.");
-}
-
-void LuaManager::RemoveFrameHook() noexcept {
-    if (imguiHookId_ == 0 || ImGui::GetCurrentContext() == nullptr) { imguiHookId_ = 0; return; }
-    ImGui::RemoveContextHook(ImGui::GetCurrentContext(), imguiHookId_);
-    imguiHookId_ = 0;
-}
-
 void LuaManager::Shutdown() noexcept {
     if (!initialized_) return;
-    RemoveFrameHook();
     events_.Emit("shutdown");
     scripts_.UnloadAll();
     modules_.Shutdown();
@@ -129,24 +112,39 @@ void LuaManager::Update() {
 
 void LuaManager::Draw() {
     if (!initialized_) return;
+    drawingFrame_ = true;
     events_.Emit("draw");
-    ui_.Draw();
+    drawingFrame_ = false;
+}
+
+void LuaManager::DrawMenu() {
+    if (!initialized_) return;
+    drawingFrame_ = true;
+    events_.Emit("menu");
+    ui_.DrawInline();
+    drawingFrame_ = false;
 }
 
 void LuaManager::Refresh() {
     scripts_.Refresh();
     for (const ScriptRecord& script : scripts_.Scripts()) {
-        if (script.enabled && script.autoLoad && !script.loaded) scripts_.Load(script.name);
+        if (script.enabled && script.autoLoad && !script.loaded) {
+            (void)scripts_.Load(script.name);
+        }
     }
 }
 
 const std::vector<ScriptRecord>& LuaManager::Scripts() const noexcept { return scripts_.Scripts(); }
 bool LuaManager::RuntimeReady() const noexcept { return initialized_ && bindings_.Ready(); }
+bool LuaManager::HasMenuContent() const noexcept {
+    return initialized_ &&
+           (events_.HasSubscribers("menu") || !ui_.Empty());
+}
 
 std::string LuaManager::StatusText() const {
     if (!initialized_) return "Lua subsystem is not initialized.";
     if (!bindings_.Ready()) return "Lua 5.4 runtime is initialized; waiting for the native feature registry binding.";
-    return "Lua API v2.1 ready: Lua 5.4 + sol2 with permission-gated per-script filesystem sandboxes, manifests, hot reload, modules, commands, events, timers, and retained ImGui widgets.";
+    return "Lua API v2.1 ready: Lua 5.4 + sol2 with direct ImGui and retained UI controls, manifests, hot reload, modules, commands, events, timers, and permission-gated per-script filesystem sandboxes.";
 }
 
 std::string LuaManager::ActiveScriptName() const { return activeScriptName_.empty() ? "__native__" : activeScriptName_; }

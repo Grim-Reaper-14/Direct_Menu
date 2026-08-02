@@ -22,6 +22,7 @@ public:
     bool Unsubscribe(std::uint64_t id);
     void RemoveByOwner(std::string_view owner);
     void Clear();
+    [[nodiscard]] bool HasSubscribers(std::string_view eventName) const noexcept;
     void Emit(std::string_view eventName);
 
     template <typename... Args>

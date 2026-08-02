@@ -1,5 +1,7 @@
 #pragma once
 
+#include "scripting/LuaImGuiBindings.hpp"
+
 #include <sol/sol.hpp>
 
 #include <functional>
@@ -41,6 +43,7 @@ public:
         LuaModuleManager& modules,
         LuaFileSystemSandbox& fileSystem,
         OwnerProvider ownerProvider,
+        ImGuiFrameScopeProvider frameScopeProvider,
         RefreshCallback refreshCallback,
         PermissionCallback permissionCallback,
         MetadataCallback metadataCallback);
@@ -55,6 +58,7 @@ private:
     void RegisterEvents();
     void RegisterTimers();
     void RegisterUI();
+    void RegisterImGui();
     void RegisterApplication();
     void RegisterFileSystem();
     void RegisterDirectApiV2();
@@ -69,6 +73,7 @@ private:
     LuaModuleManager& modules_;
     LuaFileSystemSandbox& fileSystem_;
     OwnerProvider ownerProvider_;
+    ImGuiFrameScopeProvider frameScopeProvider_;
     RefreshCallback refreshCallback_;
     PermissionCallback permissionCallback_;
     MetadataCallback metadataCallback_;

@@ -48,6 +48,7 @@ enum class MenuPage {
     Lsc,
     Settings,
     Lua,
+    StyleEditor,
     Themes,
     Images,
     Fonts,
@@ -107,6 +108,7 @@ private:
     void RenderLsc();
     void RenderSettings();
     void RenderLua();
+    void RenderStyleEditor();
     void RenderThemes();
     void RenderImages();
     void RenderFonts();

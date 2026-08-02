@@ -266,6 +266,9 @@ void Menu::RenderMain() {
         case MenuPage::Lua:
             RenderLua();
             break;
+        case MenuPage::StyleEditor:
+            RenderStyleEditor();
+            break;
         case MenuPage::Themes:
             RenderThemes();
             break;
@@ -327,6 +330,8 @@ std::string_view Menu::PageTitle(const MenuPage page) {
         return "Settings";
     case MenuPage::Lua:
         return "Settings / Lua";
+    case MenuPage::StyleEditor:
+        return "Settings / Style Editor";
     case MenuPage::Themes:
         return "Settings / Themes";
     case MenuPage::Images:
@@ -361,6 +366,8 @@ std::string_view Menu::PageDescription(const MenuPage page) {
         return "Manage Lua, themes, backgrounds, fonts, configurations, visibility, and application controls.";
     case MenuPage::Lua:
         return "Refresh and manage Lua scripts and review the current scripting runtime status.";
+    case MenuPage::StyleEditor:
+        return "Inspect and edit the active Dear ImGui style, with controls to restore the selected Direct Menu theme.";
     case MenuPage::Themes:
         return "Change the active accent theme; controls, headers, borders, and Reaper artwork update live.";
     case MenuPage::Images:
@@ -818,6 +825,7 @@ void Menu::RenderLsc() {
 
 void Menu::RenderSettings() {
     SubmenuButton("Lua", MenuPage::Lua);
+    SubmenuButton("Style Editor", MenuPage::StyleEditor);
     SubmenuButton("Themes", MenuPage::Themes);
     SubmenuButton("Image Loader", MenuPage::Images);
     SubmenuButton("Font Selection", MenuPage::Fonts);
@@ -848,27 +856,268 @@ void Menu::RenderSettings() {
 void Menu::RenderLua() {
     RenderInfoCard(lua_.StatusText());
 
-    if (ImGui::Button("Refresh Script Folder", {-1.0F, 38.0F})) {
-        lua_.Refresh();
-        notifications_.Push("Lua script list refreshed.", NotificationKind::Success);
+    ImGui::TextDisabled("Script interface");
+    if (lua_.HasMenuContent()) {
+        ImGui::PushID("LuaScriptInterface");
+        lua_.DrawMenu();
+        ImGui::PopID();
+    } else {
+        ImGui::TextWrapped(
+            "Loaded scripts can add controls here with direct.ui or "
+            "event.on(\"menu\", function() ... end). Scripts may also use "
+            "the immediate-mode ImGui/imgui table inside menu and draw callbacks.");
     }
 
     ImGui::Spacing();
-    ImGui::TextDisabled("Detected .lua files");
-    if (lua_.Scripts().empty()) {
-        ImGui::TextWrapped(
-            "No scripts found. Files can be placed in the LuaScripts runtime "
-            "folder, but execution stays disabled until bindings are added.");
-    } else {
-        for (const auto& script : lua_.Scripts()) {
-            ImGui::BulletText("%s", script.name.c_str());
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    auto& scriptsManager = lua_.ScriptsManager();
+    const std::string scriptsDirectory =
+        filesystem::FileSystemManager::ToUtf8(
+            scriptsManager.Directory().wstring());
+
+    ImGui::TextDisabled("Lua script folder");
+    ImGui::TextWrapped("%s", scriptsDirectory.c_str());
+    if (ImGui::Button("Copy Folder Path", {150.0F, 36.0F})) {
+        ImGui::SetClipboardText(scriptsDirectory.c_str());
+        notifications_.Push(
+            "Lua script folder copied to the clipboard.",
+            NotificationKind::Success);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Refresh Scripts", {150.0F, 36.0F})) {
+        lua_.Refresh();
+        notifications_.Push(
+            std::format(
+                "Lua script list refreshed: {} file(s) found.",
+                scriptsManager.Scripts().size()),
+            NotificationKind::Success);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reload All", {-1.0F, 36.0F})) {
+        std::vector<std::string> names;
+        names.reserve(scriptsManager.Scripts().size());
+        for (const auto& script : scriptsManager.Scripts()) {
+            if (script.enabled) {
+                names.push_back(script.name);
+            }
+        }
+
+        std::size_t loadedCount = 0;
+        for (const std::string& name : names) {
+            if (scriptsManager.Reload(name)) {
+                ++loadedCount;
+            }
+        }
+
+        const std::size_t failedCount = names.size() - loadedCount;
+        if (failedCount == 0) {
+            notifications_.Push(
+                std::format("Reloaded {} Lua script(s).", loadedCount),
+                NotificationKind::Success);
+        } else {
+            notifications_.Push(
+                std::format(
+                    "Reloaded {} Lua script(s); {} failed. See each script's error below.",
+                    loadedCount,
+                    failedCount),
+                NotificationKind::Error,
+                6.0);
         }
     }
 
     ImGui::Spacing();
-    ImGui::BeginDisabled();
-    ImGui::Button("Load Selected Script (Runtime Deferred)", {-1.0F, 38.0F});
-    ImGui::EndDisabled();
+    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::TextDisabled("Scripts");
+    if (scriptsManager.Scripts().empty()) {
+        ImGui::TextWrapped(
+            "No .lua files were found. Place scripts in the folder shown above, "
+            "then select Refresh Scripts.");
+    } else {
+        for (const auto& script : scriptsManager.Scripts()) {
+            ImGui::PushID(script.name.c_str());
+
+            const ImVec4 statusColor = script.loaded
+                ? ImVec4{0.24F, 0.78F, 0.48F, 1.0F}
+                : (script.lastError.empty()
+                    ? ImVec4{0.70F, 0.72F, 0.76F, 1.0F}
+                    : ImVec4{0.92F, 0.30F, 0.34F, 1.0F});
+            ImGui::PushStyleColor(ImGuiCol_Text, statusColor);
+            ImGui::TextUnformatted(
+                script.loaded ? "LOADED" :
+                (script.lastError.empty() ? "UNLOADED" : "ERROR"));
+            ImGui::PopStyleColor();
+            ImGui::SameLine();
+            ImGui::TextUnformatted(script.name.c_str());
+
+            bool enabled = script.enabled;
+            if (ImGui::Checkbox("Enabled", &enabled)) {
+                const std::string name = script.name;
+                scripting::ScriptRecord* mutableScript =
+                    scriptsManager.Find(name);
+                if (mutableScript != nullptr) {
+                    if (!enabled && mutableScript->loaded) {
+                        (void)scriptsManager.Unload(name);
+                    }
+                    mutableScript->enabled = enabled;
+                    if (enabled && mutableScript->autoLoad &&
+                        !mutableScript->loaded) {
+                        (void)scriptsManager.Load(name);
+                    }
+                    notifications_.Push(
+                        std::format(
+                            "{} Lua script: {}",
+                            enabled ? "Enabled" : "Disabled",
+                            name),
+                        NotificationKind::Success);
+                }
+            }
+            ImGui::SameLine();
+            bool autoLoad = script.autoLoad;
+            if (ImGui::Checkbox("AutoLoad", &autoLoad)) {
+                const std::string name = script.name;
+                scripting::ScriptRecord* mutableScript =
+                    scriptsManager.Find(name);
+                if (mutableScript != nullptr) {
+                    mutableScript->autoLoad = autoLoad;
+                    if (autoLoad && mutableScript->enabled &&
+                        !mutableScript->loaded) {
+                        (void)scriptsManager.Load(name);
+                    }
+                    notifications_.Push(
+                        std::format(
+                            "AutoLoad {} for {} (this session).",
+                            autoLoad ? "enabled" : "disabled",
+                            name),
+                        NotificationKind::Info);
+                }
+            }
+
+            ImGui::BeginDisabled(script.loaded || !script.enabled);
+            if (ImGui::Button("Load", {92.0F, 34.0F})) {
+                const std::string name = script.name;
+                if (scriptsManager.Load(name)) {
+                    notifications_.Push(
+                        "Loaded Lua script: " + name,
+                        NotificationKind::Success);
+                } else {
+                    const auto* failed = scriptsManager.Find(name);
+                    const std::string detail =
+                        failed != nullptr && !failed->lastError.empty()
+                            ? failed->lastError
+                            : "The script is disabled or could not be loaded.";
+                    notifications_.Push(
+                        "Failed to load " + name + ": " + detail,
+                        NotificationKind::Error,
+                        6.0);
+                }
+            }
+            ImGui::EndDisabled();
+
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!script.enabled);
+            if (ImGui::Button("Reload", {92.0F, 34.0F})) {
+                const std::string name = script.name;
+                if (scriptsManager.Reload(name)) {
+                    notifications_.Push(
+                        "Reloaded Lua script: " + name,
+                        NotificationKind::Success);
+                } else {
+                    const auto* failed = scriptsManager.Find(name);
+                    const std::string detail =
+                        failed != nullptr && !failed->lastError.empty()
+                            ? failed->lastError
+                            : "The script could not be reloaded.";
+                    notifications_.Push(
+                        "Failed to reload " + name + ": " + detail,
+                        NotificationKind::Error,
+                        6.0);
+                }
+            }
+            ImGui::EndDisabled();
+
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!script.loaded);
+            if (ImGui::Button("Unload", {-1.0F, 34.0F})) {
+                const std::string name = script.name;
+                if (scriptsManager.Unload(name)) {
+                    notifications_.Push(
+                        "Unloaded Lua script: " + name,
+                        NotificationKind::Success);
+                } else {
+                    notifications_.Push(
+                        "Could not unload Lua script: " + name,
+                        NotificationKind::Warning);
+                }
+            }
+            ImGui::EndDisabled();
+
+            ImGui::TextDisabled(
+                "Author: %s  |  Version: %s  |  API: %s",
+                script.author.empty() ? "Unknown" : script.author.c_str(),
+                script.version.empty() ? "Unknown" : script.version.c_str(),
+                script.apiVersion.empty() ? "Unknown" : script.apiVersion.c_str());
+            if (!script.description.empty()) {
+                ImGui::TextWrapped("%s", script.description.c_str());
+            }
+
+            if (!script.permissions.empty()) {
+                std::string permissions;
+                for (const auto& permission : script.permissions) {
+                    if (!permissions.empty()) permissions += ", ";
+                    permissions += permission;
+                }
+                ImGui::TextDisabled("Permissions: %s", permissions.c_str());
+            }
+
+            if (!script.lastError.empty()) {
+                ImGui::PushStyleColor(
+                    ImGuiCol_Text,
+                    ImVec4{0.92F, 0.30F, 0.34F, 1.0F});
+                ImGui::TextWrapped("Error: %s", script.lastError.c_str());
+                ImGui::PopStyleColor();
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            ImGui::PopID();
+        }
+    }
+}
+
+void Menu::RenderStyleEditor() {
+    RenderInfoCard(
+        "Changes apply immediately and remain active for this run. Reapply the "
+        "selected Direct Menu theme at any time to recover its intended colors "
+        "and spacing.");
+
+    if (ImGui::Button("Reapply Direct Menu Theme", {-1.0F, 38.0F})) {
+        if (themes_.Apply(settings_.theme)) {
+            notifications_.Push(
+                "Reapplied the selected Direct Menu theme.",
+                NotificationKind::Success);
+        } else {
+            notifications_.Push(
+                "The selected theme could not be reapplied.",
+                NotificationKind::Error);
+        }
+    }
+
+    if (ImGui::Button("Reset to ImGui Dark Defaults", {-1.0F, 38.0F})) {
+        ImGui::StyleColorsDark(&ImGui::GetStyle());
+        notifications_.Push(
+            "Reset the editor to ImGui dark defaults. Use Reapply Direct Menu Theme to restore branding.",
+            NotificationKind::Info,
+            6.0);
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::ShowStyleEditor(&ImGui::GetStyle());
 }
 
 void Menu::RenderThemes() {

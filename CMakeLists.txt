@@ -75,7 +75,6 @@ add_library(lua_static STATIC
     "${lua_SOURCE_DIR}/lzio.c"
 )
 target_include_directories(lua_static PUBLIC "${lua_SOURCE_DIR}")
-target_compile_definitions(lua_static PRIVATE LUA_USE_WINDOWS)
 set_target_properties(lua_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_library(imgui STATIC
@@ -118,6 +117,7 @@ add_executable(Direct_Menu WIN32
     src/scripting/LuaCommands.cpp
     src/scripting/LuaEvents.cpp
     src/scripting/LuaFileSystemSandbox.cpp
+    src/scripting/LuaImGuiBindings.cpp
     src/scripting/LuaManager.cpp
     src/scripting/LuaModule.cpp
     src/scripting/LuaModuleManager.cpp

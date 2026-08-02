@@ -27,6 +27,7 @@ LuaBindingLibrary::LuaBindingLibrary(
     LuaModuleManager& modules,
     LuaFileSystemSandbox& fileSystem,
     OwnerProvider ownerProvider,
+    ImGuiFrameScopeProvider frameScopeProvider,
     RefreshCallback refreshCallback,
     PermissionCallback permissionCallback,
     MetadataCallback metadataCallback)
@@ -39,6 +40,7 @@ LuaBindingLibrary::LuaBindingLibrary(
       modules_(modules),
       fileSystem_(fileSystem),
       ownerProvider_(std::move(ownerProvider)),
+      frameScopeProvider_(std::move(frameScopeProvider)),
       refreshCallback_(std::move(refreshCallback)),
       permissionCallback_(std::move(permissionCallback)),
       metadataCallback_(std::move(metadataCallback)) {}
@@ -52,6 +54,7 @@ void LuaBindingLibrary::RegisterCoreBindings() {
     RegisterEvents();
     RegisterTimers();
     RegisterUI();
+    RegisterImGui();
     RegisterApplication();
     RegisterFileSystem();
     RegisterDirectApiV2();
@@ -113,6 +116,10 @@ void LuaBindingLibrary::RegisterUI() {
         return ui_.AddCheckbox(ownerProvider_(), label, initialValue, std::move(callback));
     });
     ui.set_function("remove", [this](const std::uint64_t id){ return ui_.Remove(id); });
+}
+
+void LuaBindingLibrary::RegisterImGui() {
+    RegisterLuaImGuiBindings(logger_, lua_, frameScopeProvider_);
 }
 
 void LuaBindingLibrary::RegisterApplication() {

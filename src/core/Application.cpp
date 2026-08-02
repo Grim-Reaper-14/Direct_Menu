@@ -91,8 +91,8 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
     }
 
     RegisterBuiltInFeatures();
-    lua_.Initialize(fileSystem_.LuaScripts());
     lua_.BindFeatureRegistry(features_);
+    lua_.Initialize(fileSystem_.LuaScripts());
 
     ui::MenuCallbacks callbacks{};
     callbacks.toggleVisibility = [this] {
@@ -159,6 +159,8 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
 
         backend_.NewFrame();
         ImGui::NewFrame();
+        lua_.Update();
+        lua_.Draw();
 
         if (menu_->WelcomeComplete()) {
             menu_->RenderMain();
@@ -174,13 +176,13 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
             logger_.Critical(renderError);
             const std::filesystem::path logPath =
                 fileSystem_.Logs() / L"latest.log";
-            const std::wstring message =
+            const std::wstring dialogMessage =
                 L"Direct3D 12 rendering failed.\n\n" +
                 filesystem::FileSystemManager::ToWide(renderError) +
                 L"\n\nLog file:\n" + logPath.wstring();
             MessageBoxW(
                 window_,
-                message.c_str(),
+                dialogMessage.c_str(),
                 WindowTitle,
                 MB_OK | MB_ICONERROR);
             done = true;
@@ -467,6 +469,7 @@ void Application::Cleanup() {
     }
 
     tasks_.Shutdown();
+    lua_.Shutdown();
     menu_.reset();
     if (images_.HasImage()) {
         images_.Clear(backend_);

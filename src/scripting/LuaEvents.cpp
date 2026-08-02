@@ -41,6 +41,12 @@ void LuaEvents::RemoveByOwner(const std::string_view owner) {
 }
 
 void LuaEvents::Clear() { handlers_.clear(); }
+
+bool LuaEvents::HasSubscribers(const std::string_view eventName) const noexcept {
+    const auto iterator = handlers_.find(std::string{eventName});
+    return iterator != handlers_.end() && !iterator->second.empty();
+}
+
 void LuaEvents::Emit(const std::string_view eventName) { Emit<>(eventName); }
 
 void LuaEvents::ReportError(

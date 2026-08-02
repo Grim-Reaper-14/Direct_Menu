@@ -30,10 +30,12 @@ public:
     void Shutdown() noexcept;
     void Update();
     void Draw();
+    void DrawMenu();
     void Refresh();
 
     [[nodiscard]] const std::vector<ScriptRecord>& Scripts() const noexcept;
     [[nodiscard]] bool RuntimeReady() const noexcept;
+    [[nodiscard]] bool HasMenuContent() const noexcept;
     [[nodiscard]] std::string StatusText() const;
     [[nodiscard]] std::string ActiveScriptName() const;
 
@@ -51,8 +53,6 @@ public:
 
 private:
     void OpenLibraries();
-    void InstallFrameHook();
-    void RemoveFrameHook() noexcept;
     void SetActiveScript(std::string_view owner);
     void CleanupOwnedResources(std::string_view owner);
 
@@ -67,7 +67,7 @@ private:
     LuaBindingLibrary bindings_;
     LuaScriptsManager scripts_;
     std::string activeScriptName_;
-    unsigned int imguiHookId_{0};
+    bool drawingFrame_{false};
     bool initialized_{false};
 };
 
