@@ -1,5 +1,5 @@
 #include "scripting/LuaModule.hpp"
 
 namespace smf::scripting {
-// Intentionally empty: LuaModule is a polymorphic interface.
+// LuaModule is a polymorphic interface.
 }

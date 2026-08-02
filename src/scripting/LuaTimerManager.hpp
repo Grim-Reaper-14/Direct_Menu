@@ -4,30 +4,21 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
 
-namespace smf::logging {
-class LoggerApi;
-}
-
+namespace smf::logging { class LoggerApi; }
 namespace smf::scripting {
 
 class LuaTimerManager {
 public:
-    explicit LuaTimerManager(logging::LoggerApi& logger);
+    using OwnerChangedCallback = std::function<void(std::string_view)>;
+    explicit LuaTimerManager(logging::LoggerApi& logger, OwnerChangedCallback ownerChanged = {});
 
-    std::uint64_t After(
-        std::chrono::milliseconds delay,
-        std::string owner,
-        sol::protected_function callback);
-
-    std::uint64_t Every(
-        std::chrono::milliseconds interval,
-        std::string owner,
-        sol::protected_function callback);
-
+    std::uint64_t After(std::chrono::milliseconds delay, std::string owner, sol::protected_function callback);
+    std::uint64_t Every(std::chrono::milliseconds interval, std::string owner, sol::protected_function callback);
     bool Cancel(std::uint64_t id);
     void RemoveByOwner(std::string_view owner);
     void Clear();
@@ -44,13 +35,10 @@ private:
         sol::protected_function callback;
     };
 
-    std::uint64_t Add(
-        std::chrono::milliseconds delay,
-        bool repeating,
-        std::string owner,
-        sol::protected_function callback);
+    std::uint64_t Add(std::chrono::milliseconds delay, bool repeating, std::string owner, sol::protected_function callback);
 
     logging::LoggerApi& logger_;
+    OwnerChangedCallback ownerChanged_;
     std::vector<Timer> timers_;
     std::uint64_t nextId_{1};
 };

@@ -3,7 +3,6 @@
 #include <sol/sol.hpp>
 
 #include <chrono>
-#include <cstddef>
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -11,10 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace smf::logging {
-class LoggerApi;
-}
-
+namespace smf::logging { class LoggerApi; }
 namespace smf::scripting {
 
 struct ScriptRecord {
@@ -26,6 +22,8 @@ struct ScriptRecord {
     std::string author;
     std::string version;
     std::string description;
+    std::string apiVersion{"2.0"};
+    std::vector<std::string> permissions;
     std::string lastError;
 };
 
@@ -34,35 +32,23 @@ public:
     using OwnerChangedCallback = std::function<void(std::string_view)>;
     using CleanupCallback = std::function<void(std::string_view)>;
 
-    LuaScriptsManager(
-        logging::LoggerApi& logger,
-        sol::state& lua,
-        OwnerChangedCallback ownerChanged,
-        CleanupCallback cleanup);
-
+    LuaScriptsManager(logging::LoggerApi& logger, sol::state& lua, OwnerChangedCallback ownerChanged, CleanupCallback cleanup);
     void Initialize(std::filesystem::path scriptsDirectory);
     void Refresh();
     void Update();
-
     [[nodiscard]] bool Load(std::string_view name);
     [[nodiscard]] bool Unload(std::string_view name);
     [[nodiscard]] bool Reload(std::string_view name);
-    [[nodiscard]] std::size_t ReloadAll();
     void UnloadAll();
-
     [[nodiscard]] ScriptRecord* Find(std::string_view name) noexcept;
     [[nodiscard]] const ScriptRecord* Find(std::string_view name) const noexcept;
-
+    [[nodiscard]] bool HasPermission(std::string_view owner, std::string_view permission) const noexcept;
     [[nodiscard]] const std::vector<ScriptRecord>& Scripts() const noexcept;
     [[nodiscard]] const std::filesystem::path& Directory() const noexcept;
 
 private:
-    struct RuntimeScript {
-        sol::environment environment;
-    };
-
+    struct RuntimeScript { sol::environment environment; };
     [[nodiscard]] bool ExecuteScript(ScriptRecord& script);
-    void ReadMetadata(ScriptRecord& script, const sol::environment& environment);
     void InvokeUnload(std::string_view name);
     void RememberWriteTime(const ScriptRecord& script);
 

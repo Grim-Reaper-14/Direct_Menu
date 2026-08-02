@@ -78,8 +78,10 @@ private:
     scripting::LuaManager lua_;
     ui::ThemeManager themes_;
     ui::FontManager fonts_;
+    ui::ImageLoader brandBackground_;
+    ui::ImageLoader brandHeader_;
+    ui::ImageLoader brandIcon_;
     ui::ImageLoader images_;
-    ui::ImageLoader brandingIcon_;
     ui::NotificationCenter notifications_;
     std::unique_ptr<ui::Menu> menu_;
 };

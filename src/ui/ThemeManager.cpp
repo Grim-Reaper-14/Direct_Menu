@@ -36,11 +36,27 @@ void ApplyAccent(ImGuiStyle& style, const ImVec4 accent) {
     colors[ImGuiCol_CheckMark] = accent;
     colors[ImGuiCol_SliderGrab] = accent;
     colors[ImGuiCol_SliderGrabActive] = hovered;
-    colors[ImGuiCol_ButtonHovered] = ImVec4{accent.x, accent.y, accent.z, 0.72F};
-    colors[ImGuiCol_ButtonActive] = active;
+
+    colors[ImGuiCol_Button] = ImVec4{accent.x, accent.y, accent.z, 0.22F};
+    colors[ImGuiCol_ButtonHovered] = ImVec4{accent.x, accent.y, accent.z, 0.62F};
+    colors[ImGuiCol_ButtonActive] = ImVec4{active.x, active.y, active.z, 0.92F};
+
     colors[ImGuiCol_Header] = ImVec4{accent.x, accent.y, accent.z, 0.35F};
     colors[ImGuiCol_HeaderHovered] = ImVec4{accent.x, accent.y, accent.z, 0.58F};
     colors[ImGuiCol_HeaderActive] = ImVec4{accent.x, accent.y, accent.z, 0.75F};
+
+    colors[ImGuiCol_FrameBgHovered] = ImVec4{accent.x, accent.y, accent.z, 0.20F};
+    colors[ImGuiCol_FrameBgActive] = ImVec4{accent.x, accent.y, accent.z, 0.30F};
+
+    colors[ImGuiCol_Separator] = ImVec4{accent.x, accent.y, accent.z, 0.38F};
+    colors[ImGuiCol_SeparatorHovered] = ImVec4{accent.x, accent.y, accent.z, 0.72F};
+    colors[ImGuiCol_SeparatorActive] = accent;
+    colors[ImGuiCol_Border] = ImVec4{accent.x, accent.y, accent.z, 0.45F};
+
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4{accent.x, accent.y, accent.z, 0.28F};
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4{accent.x, accent.y, accent.z, 0.48F};
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4{accent.x, accent.y, accent.z, 0.68F};
+
     colors[ImGuiCol_ResizeGrip] = ImVec4{accent.x, accent.y, accent.z, 0.22F};
     colors[ImGuiCol_ResizeGripHovered] = ImVec4{accent.x, accent.y, accent.z, 0.67F};
     colors[ImGuiCol_ResizeGripActive] = accent;
@@ -51,6 +67,7 @@ void ApplyAccent(ImGuiStyle& style, const ImVec4 accent) {
 
 ThemeManager::ThemeManager()
     : themes_{
+          {"Reaper", "Reaper Monochrome", {0.72F, 0.74F, 0.78F, 1.0F}},
           {"Midnight", "Midnight Blue", {0.18F, 0.65F, 0.95F, 1.0F}},
           {"Slate", "Classic Slate", {0.48F, 0.67F, 0.76F, 1.0F}},
           {"Purple", "Purple Neon", {0.69F, 0.38F, 0.95F, 1.0F}},
@@ -77,7 +94,19 @@ bool ThemeManager::Apply(const std::string_view id) {
         ImGui::StyleColorsDark(&style);
     }
 
-    if (found->id == "Midnight") {
+    if (found->id == "Reaper") {
+        style.Colors[ImGuiCol_Text] = {0.92F, 0.93F, 0.95F, 1.0F};
+        style.Colors[ImGuiCol_TextDisabled] = {0.55F, 0.57F, 0.61F, 1.0F};
+        style.Colors[ImGuiCol_WindowBg] = {0.025F, 0.027F, 0.031F, 1.0F};
+        style.Colors[ImGuiCol_ChildBg] = {0.045F, 0.047F, 0.052F, 0.96F};
+        style.Colors[ImGuiCol_PopupBg] = {0.035F, 0.037F, 0.042F, 0.98F};
+        style.Colors[ImGuiCol_Border] = {0.49F, 0.51F, 0.55F, 0.72F};
+        style.Colors[ImGuiCol_FrameBg] = {0.095F, 0.098F, 0.105F, 1.0F};
+        style.Colors[ImGuiCol_FrameBgHovered] = {0.16F, 0.165F, 0.18F, 1.0F};
+        style.Colors[ImGuiCol_TitleBg] = {0.020F, 0.021F, 0.024F, 1.0F};
+        style.Colors[ImGuiCol_TitleBgActive] = {0.075F, 0.078F, 0.085F, 1.0F};
+        style.Colors[ImGuiCol_MenuBarBg] = {0.040F, 0.042F, 0.047F, 1.0F};
+    } else if (found->id == "Midnight") {
         style.Colors[ImGuiCol_WindowBg] = {0.035F, 0.050F, 0.075F, 1.0F};
         style.Colors[ImGuiCol_ChildBg] = {0.050F, 0.070F, 0.100F, 1.0F};
         style.Colors[ImGuiCol_PopupBg] = {0.045F, 0.060F, 0.090F, 0.98F};
@@ -116,4 +145,3 @@ ImVec4 ThemeManager::Accent() const noexcept {
 }
 
 } // namespace smf::ui
-

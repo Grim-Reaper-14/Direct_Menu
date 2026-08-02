@@ -34,7 +34,9 @@ WORD ConsoleAttributesForLevel(const LogLevel level) {
     return gray;
 }
 
-void WriteColoredConsoleLine(const LogLevel level, const std::string& line) {
+void WriteColoredConsoleLine(
+    const LogLevel level,
+    const std::string& line) {
     const HANDLE console = GetStdHandle(STD_ERROR_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO original{};
     const bool canSetColor =

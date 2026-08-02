@@ -3,7 +3,6 @@
 #include "logging/Logger.hpp"
 
 #include <imgui.h>
-#include <imgui_internal.h>
 
 #include <utility>
 
@@ -11,9 +10,11 @@ namespace smf::scripting {
 
 LuaManager::LuaManager(logging::LoggerApi& logger)
     : logger_(logger),
-      events_(logger_),
-      timers_(logger_),
-      ui_(logger_),
+      events_(logger_, [this](const std::string_view owner) { SetActiveScript(owner); }),
+      timers_(logger_, [this](const std::string_view owner) { SetActiveScript(owner); }),
+      ui_(logger_, [this](const std::string_view owner) { SetActiveScript(owner); }),
+      modules_(*this),
+      fileSystemSandbox_(logger_),
       bindings_(
           logger_,
           luaState_,
@@ -21,50 +22,64 @@ LuaManager::LuaManager(logging::LoggerApi& logger)
           events_,
           timers_,
           ui_,
+          modules_,
+          fileSystemSandbox_,
           [this] { return ActiveScriptName(); },
           [this] { return drawingFrame_; },
-          [this] { Refresh(); }),
+          [this] { Refresh(); },
+          [this](const std::string_view owner, const std::string_view permission) {
+              return scripts_.HasPermission(owner, permission);
+          },
+          [this](
+              const std::string_view owner,
+              std::string author,
+              std::string version,
+              std::string description,
+              std::string apiVersion,
+              std::vector<std::string> permissions) {
+              if (ScriptRecord* script = scripts_.Find(owner)) {
+                  script->author = std::move(author);
+                  script->version = std::move(version);
+                  script->description = std::move(description);
+                  script->apiVersion = std::move(apiVersion);
+                  script->permissions = std::move(permissions);
+              }
+          }),
       scripts_(
           logger_,
           luaState_,
           [this](const std::string_view owner) { SetActiveScript(owner); },
-          [this](const std::string_view owner) { CleanupOwnedResources(owner); }),
-      modules_(*this) {
+          [this](const std::string_view owner) { CleanupOwnedResources(owner); }) {
 }
 
-LuaManager::~LuaManager() {
-    Shutdown();
-}
+LuaManager::~LuaManager() { Shutdown(); }
 
 void LuaManager::Initialize(std::filesystem::path scriptsDirectory) {
-    if (initialized_) {
+    if (initialized_) return;
+    if (ImGui::GetCurrentContext() == nullptr) {
+        logger_.Error("Lua initialization requires an active ImGui context.");
         return;
+    }
+
+    const std::filesystem::path sandboxRoot = scriptsDirectory / ".sandbox";
+    if (!fileSystemSandbox_.Initialize(sandboxRoot)) {
+        logger_.Warning("Lua filesystem sandbox could not be initialized; filesystem API calls will fail closed.");
     }
 
     OpenLibraries();
     scripts_.Initialize(std::move(scriptsDirectory));
     bindings_.RegisterCoreBindings();
     initialized_ = true;
-
     for (const ScriptRecord& script : scripts_.Scripts()) {
-        if (script.enabled && script.autoLoad) {
-            (void)scripts_.Load(script.name);
-        }
+        if (script.enabled && script.autoLoad) (void)scripts_.Load(script.name);
     }
-
-    InstallFrameHook();
-    logger_.Info("Lua 5.4 runtime and sol2 binding layer initialized.");
+    logger_.Info(
+        "Lua 5.4 runtime and sol2 API v2.1 binding layer initialized. Script folder: " +
+        scripts_.Directory().string());
 }
 
 void LuaManager::OpenLibraries() {
-    luaState_.open_libraries(
-        sol::lib::base,
-        sol::lib::math,
-        sol::lib::string,
-        sol::lib::table,
-        sol::lib::coroutine,
-        sol::lib::utf8);
-
+    luaState_.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string, sol::lib::table, sol::lib::coroutine, sol::lib::utf8);
     luaState_["io"] = sol::nil;
     luaState_["os"] = sol::nil;
     luaState_["debug"] = sol::nil;
@@ -74,43 +89,8 @@ void LuaManager::OpenLibraries() {
     luaState_["loadfile"] = sol::nil;
 }
 
-void LuaManager::InstallFrameHook() {
-    if (imguiHookId_ != 0 || ImGui::GetCurrentContext() == nullptr) {
-        return;
-    }
-
-    ImGuiContextHook hook{};
-    hook.Type = ImGuiContextHookType_NewFramePost;
-    hook.UserData = this;
-    hook.Callback = [](ImGuiContext*, ImGuiContextHook* contextHook) {
-        auto* manager = static_cast<LuaManager*>(contextHook->UserData);
-        if (manager == nullptr) {
-            return;
-        }
-        manager->Update();
-        manager->Draw();
-    };
-
-    imguiHookId_ = ImGui::AddContextHook(ImGui::GetCurrentContext(), &hook);
-    logger_.Debug("Lua per-frame ImGui hook installed.");
-}
-
-void LuaManager::RemoveFrameHook() noexcept {
-    if (imguiHookId_ == 0 || ImGui::GetCurrentContext() == nullptr) {
-        imguiHookId_ = 0;
-        return;
-    }
-
-    ImGui::RemoveContextHook(ImGui::GetCurrentContext(), imguiHookId_);
-    imguiHookId_ = 0;
-}
-
 void LuaManager::Shutdown() noexcept {
-    if (!initialized_) {
-        return;
-    }
-
-    RemoveFrameHook();
+    if (!initialized_) return;
     events_.Emit("shutdown");
     scripts_.UnloadAll();
     modules_.Shutdown();
@@ -123,10 +103,7 @@ void LuaManager::Shutdown() noexcept {
 }
 
 void LuaManager::Update() {
-    if (!initialized_) {
-        return;
-    }
-
+    if (!initialized_) return;
     scripts_.Update();
     timers_.Update();
     events_.Emit("tick");
@@ -134,20 +111,14 @@ void LuaManager::Update() {
 }
 
 void LuaManager::Draw() {
-    if (!initialized_) {
-        return;
-    }
-
+    if (!initialized_) return;
     drawingFrame_ = true;
     events_.Emit("draw");
     drawingFrame_ = false;
 }
 
 void LuaManager::DrawMenu() {
-    if (!initialized_) {
-        return;
-    }
-
+    if (!initialized_) return;
     drawingFrame_ = true;
     events_.Emit("menu");
     ui_.DrawInline();
@@ -163,38 +134,21 @@ void LuaManager::Refresh() {
     }
 }
 
-const std::vector<ScriptRecord>& LuaManager::Scripts() const noexcept {
-    return scripts_.Scripts();
-}
-
-bool LuaManager::RuntimeReady() const noexcept {
-    return initialized_ && bindings_.Ready();
-}
-
+const std::vector<ScriptRecord>& LuaManager::Scripts() const noexcept { return scripts_.Scripts(); }
+bool LuaManager::RuntimeReady() const noexcept { return initialized_ && bindings_.Ready(); }
 bool LuaManager::HasMenuContent() const noexcept {
     return initialized_ &&
            (events_.HasSubscribers("menu") || !ui_.Empty());
 }
 
 std::string LuaManager::StatusText() const {
-    if (!initialized_) {
-        return "Lua subsystem is not initialized.";
-    }
-
-    if (!bindings_.Ready()) {
-        return "Lua 5.4 runtime is initialized; waiting for the native feature registry binding.";
-    }
-
-    return "Lua 5.4 + sol2 runtime ready. Scripts autoload, hot reload, and can render controls directly in this menu or in separate draw overlays.";
+    if (!initialized_) return "Lua subsystem is not initialized.";
+    if (!bindings_.Ready()) return "Lua 5.4 runtime is initialized; waiting for the native feature registry binding.";
+    return "Lua API v2.1 ready: Lua 5.4 + sol2 with direct ImGui and retained UI controls, manifests, hot reload, modules, commands, events, timers, and permission-gated per-script filesystem sandboxes.";
 }
 
-std::string LuaManager::ActiveScriptName() const {
-    return activeScriptName_.empty() ? "__native__" : activeScriptName_;
-}
-
-void LuaManager::SetActiveScript(const std::string_view owner) {
-    activeScriptName_.assign(owner.begin(), owner.end());
-}
+std::string LuaManager::ActiveScriptName() const { return activeScriptName_.empty() ? "__native__" : activeScriptName_; }
+void LuaManager::SetActiveScript(const std::string_view owner) { activeScriptName_.assign(owner.begin(), owner.end()); }
 
 void LuaManager::CleanupOwnedResources(const std::string_view owner) {
     commands_.UnregisterByOwner(owner);
@@ -208,36 +162,14 @@ void LuaManager::BindFeatureRegistry(features::FeatureRegistry& registry) {
     logger_.Debug("Feature registry attached to the Lua binding library.");
 }
 
-LuaScriptsManager& LuaManager::ScriptsManager() noexcept {
-    return scripts_;
-}
-
-LuaModuleManager& LuaManager::Modules() noexcept {
-    return modules_;
-}
-
-LuaCommands& LuaManager::Commands() noexcept {
-    return commands_;
-}
-
-LuaBindingLibrary& LuaManager::Bindings() noexcept {
-    return bindings_;
-}
-
-LuaEvents& LuaManager::Events() noexcept {
-    return events_;
-}
-
-LuaTimerManager& LuaManager::Timers() noexcept {
-    return timers_;
-}
-
-LuaUI& LuaManager::UI() noexcept {
-    return ui_;
-}
-
-sol::state& LuaManager::State() noexcept {
-    return luaState_;
-}
+LuaScriptsManager& LuaManager::ScriptsManager() noexcept { return scripts_; }
+LuaModuleManager& LuaManager::Modules() noexcept { return modules_; }
+LuaCommands& LuaManager::Commands() noexcept { return commands_; }
+LuaBindingLibrary& LuaManager::Bindings() noexcept { return bindings_; }
+LuaEvents& LuaManager::Events() noexcept { return events_; }
+LuaTimerManager& LuaManager::Timers() noexcept { return timers_; }
+LuaUI& LuaManager::UI() noexcept { return ui_; }
+LuaFileSystemSandbox& LuaManager::FileSystemSandbox() noexcept { return fileSystemSandbox_; }
+sol::state& LuaManager::State() noexcept { return luaState_; }
 
 } // namespace smf::scripting

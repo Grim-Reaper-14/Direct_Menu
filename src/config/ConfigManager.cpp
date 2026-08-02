@@ -189,21 +189,19 @@ std::string ConfigManager::StartupConfiguration() const {
     std::ifstream input{fileSystem_.Root() / L"active_configuration.txt"};
     std::string name;
     if (input.is_open() && std::getline(input, name)) {
-        name = filesystem::FileSystemManager::SanitizeFileStem(Trim(std::move(name)));
-        if (!name.empty()) {
-            return name;
-        }
+        name = filesystem::FileSystemManager::SanitizeFileStem(
+            Trim(std::move(name)));
+        if (!name.empty()) return name;
     }
     return "default";
 }
 
-bool ConfigManager::RememberStartupConfiguration(const std::string_view name) const {
+bool ConfigManager::RememberStartupConfiguration(
+    const std::string_view name) const {
     std::ofstream output{
         fileSystem_.Root() / L"active_configuration.txt",
         std::ios::out | std::ios::trunc};
-    if (!output.is_open()) {
-        return false;
-    }
+    if (!output.is_open()) return false;
 
     output << filesystem::FileSystemManager::SanitizeFileStem(name) << '\n';
     output.flush();

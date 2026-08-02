@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.24)
 
 project(
     Direct_Menu
-    VERSION 0.1.0
-    DESCRIPTION "A modular Win32, Direct3D 12, and Dear ImGui side-menu framework"
+    VERSION 0.2.0
+    DESCRIPTION "A modular Win32, Direct3D 12, Dear ImGui, and Lua side-menu framework"
     LANGUAGES C CXX
 )
 
@@ -15,7 +15,6 @@ enable_language(RC)
 
 include(FetchContent)
 
-# Pinned so the renderer API does not unexpectedly change between builds.
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
@@ -24,15 +23,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
-# Lua is built directly from the official source tree so the project does not
-# require a separately installed Lua SDK.
 FetchContent_Declare(
     lua
     GIT_REPOSITORY https://github.com/lua/lua.git
     GIT_TAG v5.4.7
     GIT_SHALLOW TRUE
 )
-FetchContent_MakeAvailable(lua)
+FetchContent_GetProperties(lua)
+if(NOT lua_POPULATED)
+    FetchContent_Populate(lua)
+endif()
 
 FetchContent_Declare(
     sol2
@@ -109,7 +109,10 @@ add_executable(Direct_Menu WIN32
     src/backend/D3D12Backend.cpp
     src/config/ConfigManager.cpp
     src/core/Application.cpp
+    src/core/File_System_Monitor.cpp
     src/core/ImGuiStyleSettings.cpp
+    src/core/Logger.cpp
+    src/core/MemoryManagerAPI.cpp
     src/core/TaskQueue.cpp
     src/features/FeatureRegistry.cpp
     src/filesystem/FileSystemManager.cpp
@@ -117,6 +120,7 @@ add_executable(Direct_Menu WIN32
     src/scripting/LuaBindingLibrary.cpp
     src/scripting/LuaCommands.cpp
     src/scripting/LuaEvents.cpp
+    src/scripting/LuaFileSystemSandbox.cpp
     src/scripting/LuaImGuiBindings.cpp
     src/scripting/LuaManager.cpp
     src/scripting/LuaModule.cpp
@@ -175,19 +179,25 @@ set_target_properties(Direct_Menu PROPERTIES
 add_custom_command(TARGET Direct_Menu POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory
         "$<TARGET_FILE_DIR:Direct_Menu>/assets"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/assets/direct_menu_neon_background.jpg"
-        "$<TARGET_FILE_DIR:Direct_Menu>/assets/direct_menu_neon_background.jpg"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/assets/grim_reaper_icon.png"
-        "$<TARGET_FILE_DIR:Direct_Menu>/assets/grim_reaper_icon.png"
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-        "$<TARGET_FILE_DIR:Direct_Menu>/LuaScripts"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/LuaScripts/imgui_example.lua"
-        "$<TARGET_FILE_DIR:Direct_Menu>/LuaScripts/imgui_example.lua"
-    COMMENT "Copying the Direct_Menu visual assets and Lua example"
+    COMMENT "Preparing Direct_Menu assets"
 )
+
+set(DIRECT_MENU_RUNTIME_ASSETS
+    direct_menu_neon_background.jpg
+    direct_menu_background.jpg
+    direct_menu_header.jpg
+    grim_reaper_icon.png
+)
+
+foreach(asset_name IN LISTS DIRECT_MENU_RUNTIME_ASSETS)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/assets/${asset_name}")
+        add_custom_command(TARGET Direct_Menu POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/assets/${asset_name}"
+                "$<TARGET_FILE_DIR:Direct_Menu>/assets/${asset_name}"
+        )
+    endif()
+endforeach()
 
 include(CTest)
 if(BUILD_TESTING)
@@ -207,14 +217,6 @@ if(BUILD_TESTING)
     target_compile_features(TaskQueueSmoke PRIVATE cxx_std_20)
     add_test(NAME TaskQueueSmoke COMMAND TaskQueueSmoke)
 
-    add_executable(LoggerSmoke
-        tests/LoggerSmoke.cpp
-        src/logging/Logger.cpp
-    )
-    target_include_directories(LoggerSmoke PRIVATE src)
-    target_compile_features(LoggerSmoke PRIVATE cxx_std_20)
-    add_test(NAME LoggerSmoke COMMAND LoggerSmoke)
-
     add_executable(ImGuiStyleSettingsSmoke
         tests/ImGuiStyleSettingsSmoke.cpp
         src/core/ImGuiStyleSettings.cpp
@@ -224,35 +226,45 @@ if(BUILD_TESTING)
     target_link_libraries(ImGuiStyleSettingsSmoke PRIVATE imgui)
     add_test(NAME ImGuiStyleSettingsSmoke COMMAND ImGuiStyleSettingsSmoke)
 
-    add_executable(LuaScriptsManagerSmoke
-        tests/LuaScriptsManagerSmoke.cpp
-        src/logging/Logger.cpp
-        src/scripting/LuaScriptsManager.cpp
-    )
-    target_include_directories(LuaScriptsManagerSmoke PRIVATE src)
-    target_compile_features(LuaScriptsManagerSmoke PRIVATE cxx_std_20)
-    target_link_libraries(LuaScriptsManagerSmoke PRIVATE lua_static sol2::sol2)
-    add_test(NAME LuaScriptsManagerSmoke COMMAND LuaScriptsManagerSmoke)
-
-    add_executable(LuaImGuiBindingsSmoke
-        tests/LuaImGuiBindingsSmoke.cpp
+    add_executable(LuaRuntimeSmoke
+        tests/LuaRuntimeSmoke.cpp
+        src/features/FeatureRegistry.cpp
         src/logging/Logger.cpp
         src/scripting/LuaBindingLibrary.cpp
         src/scripting/LuaCommands.cpp
         src/scripting/LuaEvents.cpp
+        src/scripting/LuaFileSystemSandbox.cpp
         src/scripting/LuaImGuiBindings.cpp
+        src/scripting/LuaManager.cpp
+        src/scripting/LuaModule.cpp
+        src/scripting/LuaModuleManager.cpp
+        src/scripting/LuaScriptsManager.cpp
         src/scripting/LuaTimerManager.cpp
         src/scripting/LuaUI.cpp
     )
-    target_include_directories(LuaImGuiBindingsSmoke PRIVATE src)
-    target_compile_features(LuaImGuiBindingsSmoke PRIVATE cxx_std_20)
-    target_compile_definitions(
-        LuaImGuiBindingsSmoke
-        PRIVATE
-            DIRECT_MENU_EXAMPLE_SCRIPT="${CMAKE_SOURCE_DIR}/LuaScripts/imgui_example.lua"
+    target_include_directories(LuaRuntimeSmoke PRIVATE src)
+    target_compile_features(LuaRuntimeSmoke PRIVATE cxx_std_20)
+    target_compile_definitions(LuaRuntimeSmoke PRIVATE
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        WINVER=0x0A00
+        _WIN32_WINNT=0x0A00
+        UNICODE
+        _UNICODE
     )
-    target_link_libraries(
-        LuaImGuiBindingsSmoke
-        PRIVATE imgui lua_static sol2::sol2)
-    add_test(NAME LuaImGuiBindingsSmoke COMMAND LuaImGuiBindingsSmoke)
+    if(MSVC)
+        target_compile_options(LuaRuntimeSmoke PRIVATE
+            /W4
+            /permissive-
+            /EHsc
+            /utf-8
+            /Zc:__cplusplus
+        )
+    endif()
+    target_link_libraries(LuaRuntimeSmoke PRIVATE
+        imgui
+        lua_static
+        sol2::sol2
+    )
+    add_test(NAME LuaRuntimeSmoke COMMAND LuaRuntimeSmoke)
 endif()

@@ -25,8 +25,8 @@ public:
 
 private:
     std::vector<ThemeEntry> themes_;
-    std::string current_{"Midnight"};
-    ImVec4 accent_{0.18F, 0.65F, 0.95F, 1.0F};
+    std::string current_{"Reaper"};
+    ImVec4 accent_{0.72F, 0.74F, 0.78F, 1.0F};
 };
 
 } // namespace smf::ui

@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{7D375E9F-5D16-4D43-A8B1-8691C36A4C5A}</ProjectGuid>
+    <RootNamespace>Direct_Menu</RootNamespace>
+    <ProjectName>Direct_Menu</ProjectName>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <DirectMenuDepsRoot Condition="'$(DirectMenuDepsRoot)'==''">$(ProjectDir)build-codex\_deps</DirectMenuDepsRoot>
+    <VcpkgEnabled>false</VcpkgEnabled>
+    <OutDir>$(ProjectDir)build-vs2026-native\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)build-vs2026-native\obj\$(Configuration)\</IntDir>
+    <TargetName>Direct_Menu</TargetName>
+    <TargetExt>.exe</TargetExt>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(DirectMenuDepsRoot)\imgui-src;$(DirectMenuDepsRoot)\imgui-src\backends;$(DirectMenuDepsRoot)\lua-src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;WINVER=0x0A00;_WIN32_WINNT=0x0A00;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /Zc:u8EscapeEncoding /permissive- /external:I"$(DirectMenuDepsRoot)\sol2-src\include" %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dwmapi.lib;windowscodecs.lib;ole32.lib;shell32.lib;comdlg32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(DirectMenuDepsRoot)\imgui-src;$(DirectMenuDepsRoot)\imgui-src\backends;$(DirectMenuDepsRoot)\lua-src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;WINVER=0x0A00;_WIN32_WINNT=0x0A00;UNICODE;_UNICODE;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <AdditionalOptions>/utf-8 /Zc:__cplusplus /Zc:u8EscapeEncoding /permissive- /external:I"$(DirectMenuDepsRoot)\sol2-src\include" %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;UNICODE;_UNICODE;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dwmapi.lib;windowscodecs.lib;ole32.lib;shell32.lib;comdlg32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\backend\D3D12Backend.cpp" />
+    <ClCompile Include="src\config\ConfigManager.cpp" />
+    <ClCompile Include="src\core\Application.cpp" />
+    <ClCompile Include="src\core\File_System_Monitor.cpp" />
+    <ClCompile Include="src\core\ImGuiStyleSettings.cpp" />
+    <ClCompile Include="src\core\Logger.cpp">
+      <ObjectFileName>$(IntDir)CoreLogger.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\core\MemoryManagerAPI.cpp" />
+    <ClCompile Include="src\core\TaskQueue.cpp" />
+    <ClCompile Include="src\features\FeatureRegistry.cpp" />
+    <ClCompile Include="src\filesystem\FileSystemManager.cpp" />
+    <ClCompile Include="src\logging\Logger.cpp">
+      <ObjectFileName>$(IntDir)LoggingLogger.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\scripting\LuaBindingLibrary.cpp" />
+    <ClCompile Include="src\scripting\LuaCommands.cpp" />
+    <ClCompile Include="src\scripting\LuaEvents.cpp" />
+    <ClCompile Include="src\scripting\LuaFileSystemSandbox.cpp" />
+    <ClCompile Include="src\scripting\LuaImGuiBindings.cpp" />
+    <ClCompile Include="src\scripting\LuaManager.cpp" />
+    <ClCompile Include="src\scripting\LuaModule.cpp" />
+    <ClCompile Include="src\scripting\LuaModuleManager.cpp" />
+    <ClCompile Include="src\scripting\LuaScriptsManager.cpp" />
+    <ClCompile Include="src\scripting\LuaTimerManager.cpp" />
+    <ClCompile Include="src\scripting\LuaUI.cpp" />
+    <ClCompile Include="src\ui\FontManager.cpp" />
+    <ClCompile Include="src\ui\ImageLoader.cpp" />
+    <ClCompile Include="src\ui\Menu.cpp" />
+    <ClCompile Include="src\ui\NotificationCenter.cpp" />
+    <ClCompile Include="src\ui\ThemeManager.cpp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClCompile Include="$(DirectMenuDepsRoot)\imgui-src\imgui.cpp">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="$(DirectMenuDepsRoot)\imgui-src\imgui_demo.cpp">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="$(DirectMenuDepsRoot)\imgui-src\imgui_draw.cpp">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="$(DirectMenuDepsRoot)\imgui-src\imgui_tables.cpp">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="$(DirectMenuDepsRoot)\imgui-src\imgui_widgets.cpp">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="$(DirectMenuDepsRoot)\imgui-src\backends\imgui_impl_dx12.cpp">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="$(DirectMenuDepsRoot)\imgui-src\backends\imgui_impl_win32.cpp">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lapi.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lauxlib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lbaselib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lcode.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lcorolib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lctype.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\ldblib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\ldebug.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\ldo.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\ldump.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lfunc.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lgc.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\linit.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\liolib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\llex.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lmathlib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lmem.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\loadlib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lobject.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lopcodes.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\loslib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lparser.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lstate.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lstring.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lstrlib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\ltable.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\ltablib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\ltm.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lundump.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lutf8lib.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lvm.c" />
+    <ClCompile Include="$(DirectMenuDepsRoot)\lua-src\lzio.c" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ResourceCompile Include="src\resources\Direct_Menu.rc" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClCompile Update="$(DirectMenuDepsRoot)\lua-src\*.c">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <RuntimeAsset Include="assets\direct_menu_neon_background.jpg" Condition="Exists('assets\direct_menu_neon_background.jpg')" />
+    <RuntimeAsset Include="assets\direct_menu_background.jpg" Condition="Exists('assets\direct_menu_background.jpg')" />
+    <RuntimeAsset Include="assets\direct_menu_header.jpg" Condition="Exists('assets\direct_menu_header.jpg')" />
+    <RuntimeAsset Include="assets\grim_reaper_icon.png" Condition="Exists('assets\grim_reaper_icon.png')" />
+  </ItemGroup>
+
+  <Target Name="ValidateDirectMenuDependencies" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(DirectMenuDepsRoot)\imgui-src\imgui.h')" Text="Dear ImGui sources were not found under $(DirectMenuDepsRoot)." />
+    <Error Condition="!Exists('$(DirectMenuDepsRoot)\lua-src\lua.h')" Text="Lua 5.4 sources were not found under $(DirectMenuDepsRoot)." />
+    <Error Condition="!Exists('$(DirectMenuDepsRoot)\sol2-src\include\sol\sol.hpp')" Text="sol2 headers were not found under $(DirectMenuDepsRoot)." />
+  </Target>
+
+  <Target Name="CopyDirectMenuRuntimeAssets" AfterTargets="Build">
+    <MakeDir Directories="$(OutDir)assets" />
+    <Copy SourceFiles="@(RuntimeAsset)" DestinationFolder="$(OutDir)assets" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

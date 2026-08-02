@@ -73,8 +73,10 @@ public:
         const filesystem::FileSystemManager& fileSystem,
         scripting::LuaManager& lua,
         FontManager& fonts,
+        ImageLoader& brandBackground,
+        ImageLoader& brandHeader,
+        ImageLoader& brandIcon,
         ImageLoader& images,
-        ImageLoader& brandingIcon,
         NotificationCenter& notifications,
         ThemeManager& themes,
         core::AppSettings& settings,
@@ -90,10 +92,12 @@ private:
     void Back();
     [[nodiscard]] MenuPage CurrentPage() const;
     [[nodiscard]] static std::string_view PageTitle(MenuPage page);
+    [[nodiscard]] static std::string_view PageDescription(MenuPage page);
 
     bool SubmenuButton(std::string_view label, MenuPage target);
     void DrawAppliedBackground() const;
     void DrawNeonHeader() const;
+    void DrawBottomHeader() const;
     void RenderInfoCard(std::string_view text) const;
     void RenderFeatureCategory(std::string_view category);
     void RenderFeature(features::Feature& feature);
@@ -126,8 +130,10 @@ private:
     const filesystem::FileSystemManager& fileSystem_;
     scripting::LuaManager& lua_;
     FontManager& fonts_;
+    ImageLoader& brandBackground_;
+    ImageLoader& brandHeader_;
+    ImageLoader& brandIcon_;
     ImageLoader& images_;
-    ImageLoader& brandingIcon_;
     NotificationCenter& notifications_;
     ThemeManager& themes_;
     core::AppSettings& settings_;

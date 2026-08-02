@@ -14,9 +14,7 @@ bool ParseFloat(const std::string_view text, float& value) {
     try {
         std::size_t consumed = 0;
         const float parsed = std::stof(std::string{text}, &consumed);
-        if (consumed != text.size() || !std::isfinite(parsed)) {
-            return false;
-        }
+        if (consumed != text.size() || !std::isfinite(parsed)) return false;
         value = parsed;
         return true;
     } catch (...) {
@@ -45,26 +43,18 @@ bool ParseBoolean(const std::string_view text, bool& value) {
 
 bool ParseVector2(const std::string_view text, ImVec2& value) {
     const std::size_t separator = text.find(',');
-    if (separator == std::string_view::npos) {
-        return false;
-    }
-    return ParseFloat(text.substr(0, separator), value.x) &&
+    return separator != std::string_view::npos &&
+           ParseFloat(text.substr(0, separator), value.x) &&
            ParseFloat(text.substr(separator + 1), value.y);
 }
 
 bool ParseVector4(const std::string_view text, ImVec4& value) {
-    std::size_t first = text.find(',');
-    if (first == std::string_view::npos) {
-        return false;
-    }
-    std::size_t second = text.find(',', first + 1);
-    if (second == std::string_view::npos) {
-        return false;
-    }
-    std::size_t third = text.find(',', second + 1);
-    if (third == std::string_view::npos) {
-        return false;
-    }
+    const std::size_t first = text.find(',');
+    if (first == std::string_view::npos) return false;
+    const std::size_t second = text.find(',', first + 1);
+    if (second == std::string_view::npos) return false;
+    const std::size_t third = text.find(',', second + 1);
+    if (third == std::string_view::npos) return false;
 
     return ParseFloat(text.substr(0, first), value.x) &&
            ParseFloat(text.substr(first + 1, second - first - 1), value.y) &&
@@ -72,33 +62,46 @@ bool ParseVector4(const std::string_view text, ImVec4& value) {
            ParseFloat(text.substr(third + 1), value.w);
 }
 
-void WriteFloat(std::ostream& output, const std::string_view key, const float value) {
-    output << "imgui." << key << '='
-           << std::defaultfloat
+void WriteFloat(
+    std::ostream& output,
+    const std::string_view key,
+    const float value) {
+    output << "imgui." << key << '=' << std::defaultfloat
            << std::setprecision(std::numeric_limits<float>::max_digits10)
            << value << '\n';
 }
 
-void WriteInteger(std::ostream& output, const std::string_view key, const int value) {
+void WriteInteger(
+    std::ostream& output,
+    const std::string_view key,
+    const int value) {
     output << "imgui." << key << '=' << value << '\n';
 }
 
-void WriteBoolean(std::ostream& output, const std::string_view key, const bool value) {
+void WriteBoolean(
+    std::ostream& output,
+    const std::string_view key,
+    const bool value) {
     output << "imgui." << key << '=' << (value ? 1 : 0) << '\n';
 }
 
-void WriteVector2(std::ostream& output, const std::string_view key, const ImVec2 value) {
-    output << "imgui." << key << '='
-           << std::defaultfloat
+void WriteVector2(
+    std::ostream& output,
+    const std::string_view key,
+    const ImVec2 value) {
+    output << "imgui." << key << '=' << std::defaultfloat
            << std::setprecision(std::numeric_limits<float>::max_digits10)
            << value.x << ',' << value.y << '\n';
 }
 
-void WriteVector4(std::ostream& output, const std::string_view key, const ImVec4 value) {
-    output << "imgui." << key << '='
-           << std::defaultfloat
+void WriteVector4(
+    std::ostream& output,
+    const std::string_view key,
+    const ImVec4 value) {
+    output << "imgui." << key << '=' << std::defaultfloat
            << std::setprecision(std::numeric_limits<float>::max_digits10)
-           << value.x << ',' << value.y << ',' << value.z << ',' << value.w << '\n';
+           << value.x << ',' << value.y << ',' << value.z << ',' << value.w
+           << '\n';
 }
 
 } // namespace
@@ -109,9 +112,7 @@ void ImGuiStyleSettings::Capture(const ImGuiStyle& style) {
 }
 
 void ImGuiStyleSettings::Apply(ImGuiStyle& style) const {
-    if (hasValue_) {
-        style = style_;
-    }
+    if (hasValue_) style = style_;
 }
 
 void ImGuiStyleSettings::Reset() noexcept {
@@ -119,9 +120,7 @@ void ImGuiStyleSettings::Reset() noexcept {
     hasValue_ = false;
 }
 
-bool ImGuiStyleSettings::HasValue() const noexcept {
-    return hasValue_;
-}
+bool ImGuiStyleSettings::HasValue() const noexcept { return hasValue_; }
 
 bool ImGuiStyleSettings::SetValue(
     const std::string_view key,
@@ -218,23 +217,18 @@ bool ImGuiStyleSettings::SetValue(
     if (key.starts_with(colorPrefix)) {
         int index = -1;
         if (!ParseInteger(key.substr(colorPrefix.size()), index) ||
-            index < 0 || index >= ImGuiCol_COUNT) {
-            return false;
-        }
-        if (!ParseVector4(value, style_.Colors[index])) {
+            index < 0 || index >= ImGuiCol_COUNT ||
+            !ParseVector4(value, style_.Colors[index])) {
             return false;
         }
         hasValue_ = true;
         return true;
     }
-
     return false;
 }
 
 void ImGuiStyleSettings::Write(std::ostream& output) const {
-    if (!hasValue_) {
-        return;
-    }
+    if (!hasValue_) return;
 
     WriteFloat(output, "alpha", style_.Alpha);
     WriteFloat(output, "disabled_alpha", style_.DisabledAlpha);
@@ -293,10 +287,7 @@ void ImGuiStyleSettings::Write(std::ostream& output) const {
     WriteInteger(output, "hover_flags_tooltip_nav", style_.HoverFlagsForTooltipNav);
 
     for (int index = 0; index < ImGuiCol_COUNT; ++index) {
-        WriteVector4(
-            output,
-            "color." + std::to_string(index),
-            style_.Colors[index]);
+        WriteVector4(output, "color." + std::to_string(index), style_.Colors[index]);
     }
 }
 

@@ -8,31 +8,9 @@
 #include <utility>
 
 namespace smf::scripting {
-namespace {
 
-std::string ReadString(const sol::object& value) {
-    if (!value.valid() || value.get_type() != sol::type::string) {
-        return {};
-    }
-    return value.as<std::string>();
-}
-
-std::string ReadTableString(const sol::table& table, const char* key) {
-    return ReadString(table[key]);
-}
-
-} // namespace
-
-LuaScriptsManager::LuaScriptsManager(
-    logging::LoggerApi& logger,
-    sol::state& lua,
-    OwnerChangedCallback ownerChanged,
-    CleanupCallback cleanup)
-    : logger_(logger),
-      lua_(lua),
-      ownerChanged_(std::move(ownerChanged)),
-      cleanup_(std::move(cleanup)) {
-}
+LuaScriptsManager::LuaScriptsManager(logging::LoggerApi& logger, sol::state& lua, OwnerChangedCallback ownerChanged, CleanupCallback cleanup)
+    : logger_(logger), lua_(lua), ownerChanged_(std::move(ownerChanged)), cleanup_(std::move(cleanup)) {}
 
 void LuaScriptsManager::Initialize(std::filesystem::path scriptsDirectory) {
     scriptsDirectory_ = std::move(scriptsDirectory);
@@ -42,33 +20,17 @@ void LuaScriptsManager::Initialize(std::filesystem::path scriptsDirectory) {
 
 void LuaScriptsManager::Refresh() {
     std::vector<ScriptRecord> discovered;
-
     std::error_code error;
-    if (scriptsDirectory_.empty()) {
-        scripts_ = std::move(discovered);
-        return;
-    }
-
+    if (scriptsDirectory_.empty()) { scripts_ = {}; return; }
     std::filesystem::create_directories(scriptsDirectory_, error);
-    if (error) {
-        logger_.Warning("Lua scripts directory could not be created: " + error.message());
-        return;
-    }
+    if (error) { logger_.Warning("Lua scripts directory could not be created: " + error.message()); return; }
 
     for (const auto& entry : std::filesystem::directory_iterator(scriptsDirectory_, error)) {
-        if (error) {
-            logger_.Warning("Lua scripts directory scan stopped: " + error.message());
-            break;
-        }
-
-        if (!entry.is_regular_file(error) || entry.path().extension() != L".lua") {
-            continue;
-        }
-
+        if (error) break;
+        if (!entry.is_regular_file(error) || entry.path().extension() != L".lua") continue;
         ScriptRecord record{};
         record.name = entry.path().filename().string();
         record.path = entry.path();
-
         if (const ScriptRecord* existing = Find(record.name)) {
             record.loaded = existing->loaded;
             record.enabled = existing->enabled;
@@ -76,67 +38,31 @@ void LuaScriptsManager::Refresh() {
             record.author = existing->author;
             record.version = existing->version;
             record.description = existing->description;
+            record.apiVersion = existing->apiVersion;
+            record.permissions = existing->permissions;
             record.lastError = existing->lastError;
         }
-
         discovered.push_back(std::move(record));
     }
-
-    std::ranges::sort(discovered, [](const ScriptRecord& left, const ScriptRecord& right) {
-        return left.name < right.name;
-    });
-
-    std::vector<std::string> removedLoadedScripts;
-    for (const ScriptRecord& current : scripts_) {
-        const bool stillExists = std::ranges::any_of(
-            discovered,
-            [&current](const ScriptRecord& candidate) {
-                return candidate.name == current.name;
-            });
-        if (current.loaded && !stillExists) {
-            removedLoadedScripts.push_back(current.name);
-        }
-    }
-
-    for (const std::string& name : removedLoadedScripts) {
-        (void)Unload(name);
-    }
-
+    std::ranges::sort(discovered, [](const ScriptRecord& a, const ScriptRecord& b){ return a.name < b.name; });
     scripts_ = std::move(discovered);
 }
 
 void LuaScriptsManager::Update() {
     const auto now = std::chrono::steady_clock::now();
-    if (now < nextHotReloadCheck_) {
-        return;
-    }
+    if (now < nextHotReloadCheck_) return;
     nextHotReloadCheck_ = now + std::chrono::milliseconds{500};
-
-    std::vector<std::string> changedScripts;
+    std::vector<std::string> changed;
     for (const ScriptRecord& script : scripts_) {
-        if (!script.loaded) {
-            continue;
-        }
-
+        if (!script.loaded) continue;
         std::error_code error;
         const auto writeTime = std::filesystem::last_write_time(script.path, error);
-        if (error) {
-            continue;
-        }
-
-        const auto iterator = writeTimes_.find(script.name);
-        if (iterator == writeTimes_.end()) {
-            writeTimes_.insert_or_assign(script.name, writeTime);
-            continue;
-        }
-
-        if (iterator->second != writeTime) {
-            iterator->second = writeTime;
-            changedScripts.push_back(script.name);
-        }
+        if (error) continue;
+        const auto it = writeTimes_.find(script.name);
+        if (it == writeTimes_.end()) { writeTimes_[script.name] = writeTime; continue; }
+        if (it->second != writeTime) { it->second = writeTime; changed.push_back(script.name); }
     }
-
-    for (const std::string& name : changedScripts) {
+    for (const auto& name : changed) {
         logger_.Info("Lua script changed on disk; hot reloading: " + name);
         (void)Reload(name);
     }
@@ -144,21 +70,15 @@ void LuaScriptsManager::Update() {
 
 bool LuaScriptsManager::Load(const std::string_view name) {
     ScriptRecord* script = Find(name);
-    if (script == nullptr || !script->enabled) {
-        return false;
-    }
-
-    if (script->loaded) {
-        return true;
-    }
-
+    if (!script || !script->enabled) return false;
+    if (script->loaded) return true;
     return ExecuteScript(*script);
 }
 
 bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
     cleanup_(script.name);
     runtimeScripts_.erase(script.name);
-
+    script.permissions.clear();
     sol::environment environment{lua_, sol::create, lua_.globals()};
     environment["SCRIPT_NAME"] = script.name;
     environment["SCRIPT_PATH"] = script.path.string();
@@ -167,7 +87,7 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
     const sol::load_result loaded = lua_.load_file(script.path.string());
     if (!loaded.valid()) {
         const sol::error error = loaded;
-        ownerChanged_(std::string_view{});
+        ownerChanged_({});
         script.loaded = false;
         script.lastError = error.what();
         logger_.Error(std::format("Lua load failed for '{}': {}", script.name, error.what()));
@@ -175,18 +95,9 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
     }
 
     sol::protected_function function = loaded;
-    if (!sol::set_environment(environment, function)) {
-        ownerChanged_(std::string_view{});
-        script.loaded = false;
-        script.lastError = "The script environment could not be attached.";
-        logger_.Error(std::format(
-            "Lua environment setup failed for '{}'.",
-            script.name));
-        return false;
-    }
+    sol::set_environment(environment, function);
     const sol::protected_function_result result = function();
-    ownerChanged_(std::string_view{});
-
+    ownerChanged_({});
     if (!result.valid()) {
         const sol::error error = result;
         script.loaded = false;
@@ -196,10 +107,18 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
         return false;
     }
 
-    ReadMetadata(script, environment);
-    runtimeScripts_.insert_or_assign(
-        script.name,
-        RuntimeScript{.environment = std::move(environment)});
+    if (script.author.empty()) {
+        script.author = environment.get_or("SCRIPT_AUTHOR", std::string{});
+    }
+    if (script.version.empty()) {
+        script.version = environment.get_or("SCRIPT_VERSION", std::string{});
+    }
+    if (script.description.empty()) {
+        script.description =
+            environment.get_or("SCRIPT_DESCRIPTION", std::string{});
+    }
+
+    runtimeScripts_.insert_or_assign(script.name, RuntimeScript{.environment = std::move(environment)});
     script.loaded = true;
     script.lastError.clear();
     RememberWriteTime(script);
@@ -207,66 +126,27 @@ bool LuaScriptsManager::ExecuteScript(ScriptRecord& script) {
     return true;
 }
 
-void LuaScriptsManager::ReadMetadata(
-    ScriptRecord& script,
-    const sol::environment& environment) {
-    script.author = ReadString(environment["SCRIPT_AUTHOR"]);
-    script.version = ReadString(environment["SCRIPT_VERSION"]);
-    script.description = ReadString(environment["SCRIPT_DESCRIPTION"]);
-
-    const sol::object metadataObject = environment["SCRIPT_METADATA"];
-    if (!metadataObject.valid() || metadataObject.get_type() != sol::type::table) {
-        return;
-    }
-
-    const sol::table metadata = metadataObject.as<sol::table>();
-    if (script.author.empty()) {
-        script.author = ReadTableString(metadata, "author");
-    }
-    if (script.version.empty()) {
-        script.version = ReadTableString(metadata, "version");
-    }
-    if (script.description.empty()) {
-        script.description = ReadTableString(metadata, "description");
-    }
-}
-
 void LuaScriptsManager::RememberWriteTime(const ScriptRecord& script) {
     std::error_code error;
     const auto writeTime = std::filesystem::last_write_time(script.path, error);
-    if (!error) {
-        writeTimes_.insert_or_assign(script.name, writeTime);
-    }
+    if (!error) writeTimes_[script.name] = writeTime;
 }
 
 void LuaScriptsManager::InvokeUnload(const std::string_view name) {
-    const auto iterator = runtimeScripts_.find(std::string{name});
-    if (iterator == runtimeScripts_.end()) {
-        return;
-    }
-
-    const sol::object unloadObject = iterator->second.environment["on_unload"];
-    if (!unloadObject.valid() || unloadObject.get_type() != sol::type::function) {
-        return;
-    }
-
+    const auto it = runtimeScripts_.find(std::string{name});
+    if (it == runtimeScripts_.end()) return;
+    const sol::object unloadObject = it->second.environment["on_unload"];
+    if (!unloadObject.valid() || unloadObject.get_type() != sol::type::function) return;
     ownerChanged_(name);
     sol::protected_function unload = unloadObject.as<sol::protected_function>();
-    const sol::protected_function_result result = unload();
-    ownerChanged_(std::string_view{});
-
-    if (!result.valid()) {
-        const sol::error error = result;
-        logger_.Error(std::format("Lua on_unload failed for '{}': {}", name, error.what()));
-    }
+    const auto result = unload();
+    ownerChanged_({});
+    if (!result.valid()) { const sol::error error = result; logger_.Error(std::format("Lua on_unload failed for '{}': {}", name, error.what())); }
 }
 
 bool LuaScriptsManager::Unload(const std::string_view name) {
     ScriptRecord* script = Find(name);
-    if (script == nullptr || !script->loaded) {
-        return false;
-    }
-
+    if (!script || !script->loaded) return false;
     InvokeUnload(name);
     cleanup_(name);
     runtimeScripts_.erase(std::string{name});
@@ -278,68 +158,50 @@ bool LuaScriptsManager::Unload(const std::string_view name) {
 
 bool LuaScriptsManager::Reload(const std::string_view name) {
     ScriptRecord* script = Find(name);
-    if (script == nullptr) {
-        return false;
-    }
-
-    if (script->loaded) {
-        (void)Unload(name);
-    }
+    if (!script) return false;
+    if (script->loaded) (void)Unload(name);
     return Load(name);
-}
-
-std::size_t LuaScriptsManager::ReloadAll() {
-    std::vector<std::string> loadedScripts;
-    for (const ScriptRecord& script : scripts_) {
-        if (script.loaded) {
-            loadedScripts.push_back(script.name);
-        }
-    }
-
-    std::size_t reloaded = 0;
-    for (const std::string& name : loadedScripts) {
-        if (Reload(name)) {
-            ++reloaded;
-        }
-    }
-    return reloaded;
 }
 
 void LuaScriptsManager::UnloadAll() {
     std::vector<std::string> loaded;
-    for (const ScriptRecord& script : scripts_) {
-        if (script.loaded) {
-            loaded.push_back(script.name);
-        }
-    }
-
-    for (const std::string& name : loaded) {
-        (void)Unload(name);
-    }
+    for (const auto& script : scripts_) if (script.loaded) loaded.push_back(script.name);
+    for (const auto& name : loaded) (void)Unload(name);
     runtimeScripts_.clear();
     writeTimes_.clear();
 }
 
 ScriptRecord* LuaScriptsManager::Find(const std::string_view name) noexcept {
-    const auto it = std::ranges::find_if(scripts_, [name](const ScriptRecord& script) {
-        return script.name == name;
-    });
+    const auto it = std::ranges::find_if(scripts_, [name](const ScriptRecord& script){ return script.name == name; });
     return it == scripts_.end() ? nullptr : &*it;
 }
 
 const ScriptRecord* LuaScriptsManager::Find(const std::string_view name) const noexcept {
-    const auto it = std::ranges::find_if(scripts_, [name](const ScriptRecord& script) {
-        return script.name == name;
-    });
+    const auto it = std::ranges::find_if(scripts_, [name](const ScriptRecord& script){ return script.name == name; });
     return it == scripts_.end() ? nullptr : &*it;
 }
 
-const std::vector<ScriptRecord>& LuaScriptsManager::Scripts() const noexcept {
-    return scripts_;
+bool LuaScriptsManager::HasPermission(
+    const std::string_view owner,
+    const std::string_view permission) const noexcept {
+    const ScriptRecord* script = Find(owner);
+    if (script == nullptr) {
+        return false;
+    }
+
+    if (std::ranges::find(script->permissions, std::string{permission}) != script->permissions.end()) {
+        return true;
+    }
+
+    const auto separator = permission.find('.');
+    if (separator != std::string_view::npos) {
+        const std::string parent{permission.substr(0, separator)};
+        return std::ranges::find(script->permissions, parent) != script->permissions.end();
+    }
+    return false;
 }
 
-const std::filesystem::path& LuaScriptsManager::Directory() const noexcept {
-    return scriptsDirectory_;
-}
+const std::vector<ScriptRecord>& LuaScriptsManager::Scripts() const noexcept { return scripts_; }
+const std::filesystem::path& LuaScriptsManager::Directory() const noexcept { return scriptsDirectory_; }
 
 } // namespace smf::scripting

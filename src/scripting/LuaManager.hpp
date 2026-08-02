@@ -3,6 +3,7 @@
 #include "scripting/LuaBindingLibrary.hpp"
 #include "scripting/LuaCommands.hpp"
 #include "scripting/LuaEvents.hpp"
+#include "scripting/LuaFileSystemSandbox.hpp"
 #include "scripting/LuaModuleManager.hpp"
 #include "scripting/LuaScriptsManager.hpp"
 #include "scripting/LuaTimerManager.hpp"
@@ -14,21 +15,14 @@
 #include <string>
 #include <string_view>
 
-namespace smf::features {
-class FeatureRegistry;
-}
-
-namespace smf::logging {
-class LoggerApi;
-}
-
+namespace smf::features { class FeatureRegistry; }
+namespace smf::logging { class LoggerApi; }
 namespace smf::scripting {
 
 class LuaManager {
 public:
     explicit LuaManager(logging::LoggerApi& logger);
     ~LuaManager();
-
     LuaManager(const LuaManager&) = delete;
     LuaManager& operator=(const LuaManager&) = delete;
 
@@ -54,12 +48,11 @@ public:
     [[nodiscard]] LuaEvents& Events() noexcept;
     [[nodiscard]] LuaTimerManager& Timers() noexcept;
     [[nodiscard]] LuaUI& UI() noexcept;
+    [[nodiscard]] LuaFileSystemSandbox& FileSystemSandbox() noexcept;
     [[nodiscard]] sol::state& State() noexcept;
 
 private:
     void OpenLibraries();
-    void InstallFrameHook();
-    void RemoveFrameHook() noexcept;
     void SetActiveScript(std::string_view owner);
     void CleanupOwnedResources(std::string_view owner);
 
@@ -69,11 +62,11 @@ private:
     LuaEvents events_;
     LuaTimerManager timers_;
     LuaUI ui_;
+    LuaModuleManager modules_;
+    LuaFileSystemSandbox fileSystemSandbox_;
     LuaBindingLibrary bindings_;
     LuaScriptsManager scripts_;
-    LuaModuleManager modules_;
     std::string activeScriptName_;
-    unsigned int imguiHookId_{0};
     bool drawingFrame_{false};
     bool initialized_{false};
 };

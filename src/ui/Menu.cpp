@@ -61,6 +61,19 @@ ImU32 WithAlpha(const ImVec4 color, const float alpha) {
         {color.x, color.y, color.z, alpha});
 }
 
+ImU32 ThemeImageTint(
+    const ImVec4 accent,
+    const float alpha,
+    const float strength) {
+    const float neutral = 1.0F - strength;
+    return ImGui::ColorConvertFloat4ToU32({
+        neutral + accent.x * strength,
+        neutral + accent.y * strength,
+        neutral + accent.z * strength,
+        alpha
+    });
+}
+
 } // namespace
 
 Menu::Menu(
@@ -71,8 +84,10 @@ Menu::Menu(
     const filesystem::FileSystemManager& fileSystem,
     scripting::LuaManager& lua,
     FontManager& fonts,
+    ImageLoader& brandBackground,
+    ImageLoader& brandHeader,
+    ImageLoader& brandIcon,
     ImageLoader& images,
-    ImageLoader& brandingIcon,
     NotificationCenter& notifications,
     ThemeManager& themes,
     core::AppSettings& settings,
@@ -84,15 +99,18 @@ Menu::Menu(
       fileSystem_(fileSystem),
       lua_(lua),
       fonts_(fonts),
+      brandBackground_(brandBackground),
+      brandHeader_(brandHeader),
+      brandIcon_(brandIcon),
       images_(images),
-      brandingIcon_(brandingIcon),
       notifications_(notifications),
       themes_(themes),
       settings_(settings),
       callbacks_(std::move(callbacks)) {
     RefreshConfigurationNames();
 
-    const std::string startupConfiguration = configs_.StartupConfiguration();
+    const std::string startupConfiguration =
+        configs_.StartupConfiguration();
     if (std::ranges::find(configurationNames_, startupConfiguration) !=
         configurationNames_.end()) {
         CopyToBuffer(configurationName_, startupConfiguration);
@@ -119,17 +137,28 @@ void Menu::RenderWelcome() {
 
     DrawAppliedBackground();
 
-    constexpr ImVec2 panelSize{410.0F, 440.0F};
+    constexpr ImVec2 panelSize{430.0F, 560.0F};
     const ImVec2 available = ImGui::GetContentRegionAvail();
     ImGui::SetCursorPos({
         std::max((available.x - panelSize.x) * 0.5F, 0.0F),
         std::max((available.y - panelSize.y) * 0.5F, 0.0F)
     });
 
+    const ImVec4 accent = themes_.Accent();
+    ImGui::PushStyleColor(
+        ImGuiCol_ChildBg,
+        ImVec4{
+            accent.x * 0.035F,
+            accent.y * 0.035F,
+            accent.z * 0.035F,
+            0.90F});
+    ImGui::PushStyleColor(
+        ImGuiCol_Border,
+        ImVec4{accent.x, accent.y, accent.z, 0.62F});
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 12.0F);
     ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0F);
     if (ImGui::BeginChild("##welcome_panel", panelSize, true)) {
-        ImGui::Dummy({0.0F, 18.0F});
+        ImGui::Dummy({0.0F, 8.0F});
         DrawNeonHeader();
 
         ImGui::TextDisabled("Direct3D 12 / C++20 / Dear ImGui");
@@ -143,11 +172,11 @@ void Menu::RenderWelcome() {
         ImGui::Spacing();
 
         ImGui::BulletText("F5 hides and reopens the running menu");
-        ImGui::BulletText("Settings, themes, fonts, images, and configs included");
+        ImGui::BulletText("Themes recolor the menu and Reaper artwork live");
+        ImGui::BulletText("Settings, fonts, images, and configs included");
         ImGui::BulletText("Feature pages are safe UI placeholders");
-        ImGui::BulletText("Lua runtime is intentionally added last");
 
-        ImGui::Dummy({0.0F, 24.0F});
+        ImGui::Dummy({0.0F, 20.0F});
         if (ImGui::Button("Open Menu", {-1.0F, 44.0F})) {
             welcomeComplete_ = true;
             notifications_.Push(
@@ -156,14 +185,20 @@ void Menu::RenderWelcome() {
         }
 
         ImGui::Spacing();
-        ImGui::PushStyleColor(ImGuiCol_Button, {0.42F, 0.10F, 0.12F, 1.0F});
+        ImGui::PushStyleColor(
+            ImGuiCol_Button,
+            ImVec4{accent.x, accent.y, accent.z, 0.24F});
+        ImGui::PushStyleColor(
+            ImGuiCol_ButtonHovered,
+            ImVec4{accent.x, accent.y, accent.z, 0.52F});
         if (ImGui::Button("Exit", {-1.0F, 36.0F}) && callbacks_.requestExit) {
             callbacks_.requestExit();
         }
-        ImGui::PopStyleColor();
+        ImGui::PopStyleColor(2);
     }
     ImGui::EndChild();
     ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(2);
     ImGui::End();
 }
 
@@ -183,9 +218,7 @@ void Menu::RenderMain() {
         return;
     }
 
-
     DrawAppliedBackground();
-
     DrawNeonHeader();
 
     const char* hotkeyLabel = "F5  HIDE";
@@ -205,10 +238,15 @@ void Menu::RenderMain() {
         }
         ImGui::SameLine();
     }
-    ImGui::TextUnformatted(PageTitle(CurrentPage()).data());
+    const std::string_view pageTitle = PageTitle(CurrentPage());
+    ImGui::TextColored(
+        themes_.Accent(),
+        "%.*s",
+        static_cast<int>(pageTitle.size()),
+        pageTitle.data());
     ImGui::Spacing();
 
-    const float footerHeight = ImGui::GetFrameHeightWithSpacing() + 16.0F;
+    constexpr float footerHeight = 76.0F;
     if (ImGui::BeginChild(
             "##page_content",
             {0.0F, -footerHeight},
@@ -251,11 +289,11 @@ void Menu::RenderMain() {
         case MenuPage::Settings:
             RenderSettings();
             break;
-        case MenuPage::StyleEditor:
-            RenderStyleEditor();
-            break;
         case MenuPage::Lua:
             RenderLua();
+            break;
+        case MenuPage::StyleEditor:
+            RenderStyleEditor();
             break;
         case MenuPage::Themes:
             RenderThemes();
@@ -273,8 +311,8 @@ void Menu::RenderMain() {
     }
     ImGui::EndChild();
 
-    ImGui::Separator();
-    ImGui::TextDisabled("Standalone framework  |  F5 visibility");
+    ImGui::Spacing();
+    DrawBottomHeader();
     ImGui::End();
 }
 
@@ -322,10 +360,10 @@ std::string_view Menu::PageTitle(const MenuPage page) {
         return "Miscellaneous";
     case MenuPage::Settings:
         return "Settings";
-    case MenuPage::StyleEditor:
-        return "Settings / ImGui Style Editor";
     case MenuPage::Lua:
         return "Settings / Lua";
+    case MenuPage::StyleEditor:
+        return "Settings / Style Editor";
     case MenuPage::Themes:
         return "Settings / Themes";
     case MenuPage::Images:
@@ -338,6 +376,48 @@ std::string_view Menu::PageTitle(const MenuPage page) {
     return "Menu";
 }
 
+std::string_view Menu::PageDescription(const MenuPage page) {
+    switch (page) {
+    case MenuPage::Home:
+        return "Choose a menu category or search the registered features from one place.";
+    case MenuPage::Self:
+        return "Personal state and movement controls registered through the shared feature system.";
+    case MenuPage::Weapons:
+        return "Weapon-related options and adjustable values exposed by the feature registry.";
+    case MenuPage::Teleport:
+        return "Enter position coordinates and submit teleport requests through the menu interface.";
+    case MenuPage::Unlocks:
+        return "Local preview and unlock-related settings grouped into one dedicated page.";
+    case MenuPage::Vehicle:
+        return "Vehicle state, repair, speed, spawning, and customization pages are accessed here.";
+    case MenuPage::VehicleSpawn:
+        return "Enter a vehicle model name, validate it, and submit the spawn request from this page.";
+    case MenuPage::Lsc:
+        return "Adjust the stored vehicle customization values used by the LSC section.";
+    case MenuPage::Network:
+        return "Review local network-interface preferences and open the nested Online Sessions page.";
+    case MenuPage::OnlineSessions:
+        return "Manage saved session-list preferences for a future legitimate provider.";
+    case MenuPage::Misc:
+        return "Adjust saved quality-of-life preferences for the Direct Menu interface.";
+    case MenuPage::Settings:
+        return "Manage Lua, themes, backgrounds, fonts, configurations, visibility, and application controls.";
+    case MenuPage::Lua:
+        return "Refresh and manage Lua scripts and review the current scripting runtime status.";
+    case MenuPage::StyleEditor:
+        return "Inspect and edit the active Dear ImGui style, with controls to restore the selected Direct Menu theme.";
+    case MenuPage::Themes:
+        return "Change the active accent theme; controls, headers, borders, and Reaper artwork update live.";
+    case MenuPage::Images:
+        return "Load a custom menu background or restore the built-in theme-tinted Reaper artwork.";
+    case MenuPage::Fonts:
+        return "Choose a loaded font and adjust its live scale across the menu interface.";
+    case MenuPage::Configurations:
+        return "Save, load, and restore menu settings and registered feature values.";
+    }
+    return "Direct Menu navigation and controls.";
+}
+
 bool Menu::SubmenuButton(const std::string_view label, const MenuPage target) {
     const std::string buttonLabel = std::format("{}  >##{}", label, static_cast<int>(target));
     if (ImGui::Button(buttonLabel.c_str(), {-1.0F, 42.0F})) {
@@ -348,11 +428,22 @@ bool Menu::SubmenuButton(const std::string_view label, const MenuPage target) {
 }
 
 void Menu::DrawAppliedBackground() const {
-    if (!settings_.imageBackgroundEnabled || !images_.HasImage()) {
+    if (!settings_.imageBackgroundEnabled) {
         return;
     }
 
-    const auto& texture = images_.Texture();
+    const ImageLoader* source = nullptr;
+    if (images_.HasImage()) {
+        source = &images_;
+    } else if (brandBackground_.HasImage()) {
+        source = &brandBackground_;
+    }
+
+    if (source == nullptr) {
+        return;
+    }
+
+    const auto& texture = source->Texture();
     const ImVec2 position = ImGui::GetWindowPos();
     const ImVec2 size = ImGui::GetWindowSize();
     if (size.x <= 0.0F || size.y <= 0.0F ||
@@ -375,6 +466,7 @@ void Menu::DrawAppliedBackground() const {
         uv1.y = 1.0F - uv0.y;
     }
 
+    const ImVec4 accent = themes_.Accent();
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     drawList->AddImage(
         static_cast<ImTextureID>(texture.gpuDescriptor.ptr),
@@ -382,20 +474,76 @@ void Menu::DrawAppliedBackground() const {
         {position.x + size.x, position.y + size.y},
         uv0,
         uv1,
-        IM_COL32(
-            255,
-            255,
-            255,
-            static_cast<int>(settings_.imageBackgroundOpacity * 255.0F)));
+        ThemeImageTint(
+            accent,
+            settings_.imageBackgroundOpacity,
+            0.42F));
+
     drawList->AddRectFilled(
         position,
         {position.x + size.x, position.y + size.y},
-        IM_COL32(2, 7, 16, 72));
+        ImGui::ColorConvertFloat4ToU32({
+            accent.x * 0.07F,
+            accent.y * 0.07F,
+            accent.z * 0.07F,
+            0.30F}));
+    drawList->AddRectFilled(
+        position,
+        {position.x + size.x, position.y + size.y},
+        WithAlpha(accent, 0.035F));
 }
 
 void Menu::DrawNeonHeader() const {
-    constexpr std::string_view title{"DIRECT MENU"};
     const ImVec4 accent = themes_.Accent();
+
+    if (brandHeader_.HasImage()) {
+        const auto& texture = brandHeader_.Texture();
+        if (texture.width > 0 && texture.height > 0) {
+            const float availableWidth = ImGui::GetContentRegionAvail().x;
+            const float aspect =
+                static_cast<float>(texture.height) /
+                static_cast<float>(texture.width);
+
+            float width = availableWidth;
+            float height = width * aspect;
+            constexpr float maximumHeight = 126.0F;
+            if (height > maximumHeight) {
+                height = maximumHeight;
+                width = height / aspect;
+            }
+
+            const float offsetX = std::max((availableWidth - width) * 0.5F, 0.0F);
+            const ImVec2 cursor = ImGui::GetCursorScreenPos();
+            const ImVec2 topLeft{cursor.x + offsetX, cursor.y};
+            const ImVec2 bottomRight{topLeft.x + width, topLeft.y + height};
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+            drawList->AddImage(
+                static_cast<ImTextureID>(texture.gpuDescriptor.ptr),
+                topLeft,
+                bottomRight,
+                {0.0F, 0.0F},
+                {1.0F, 1.0F},
+                ThemeImageTint(accent, 1.0F, 0.50F));
+            drawList->AddRectFilled(
+                topLeft,
+                bottomRight,
+                WithAlpha(accent, 0.055F),
+                7.0F);
+            drawList->AddRect(
+                topLeft,
+                bottomRight,
+                WithAlpha(accent, 0.82F),
+                7.0F,
+                0,
+                1.5F);
+
+            ImGui::Dummy({availableWidth, height + 8.0F});
+            return;
+        }
+    }
+
+    constexpr std::string_view title{"DIRECT MENU"};
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImFont* font = ImGui::GetFont();
     const float size = ImGui::GetFontSize() * 1.34F;
@@ -407,17 +555,19 @@ void Menu::DrawNeonHeader() const {
         0.0F,
         title.data(),
         title.data() + title.size());
-    const bool showIcons = brandingIcon_.HasImage();
-    const float iconSize = showIcons ? std::max(textSize.y + 8.0F, 30.0F) : 0.0F;
+    const bool showIcons = brandIcon_.HasImage();
+    const float iconSize =
+        showIcons ? std::max(textSize.y + 8.0F, 30.0F) : 0.0F;
     const float iconSpacing = showIcons ? 7.0F : 0.0F;
-    const float totalWidth = textSize.x + (iconSize + iconSpacing) * 2.0F;
+    const float totalWidth =
+        textSize.x + (iconSize + iconSpacing) * 2.0F;
     const float totalHeight = std::max(textSize.y, iconSize);
     const ImVec2 textPosition{
         position.x + iconSize + iconSpacing,
         position.y + (totalHeight - textSize.y) * 0.5F};
 
     if (showIcons) {
-        const backend::TextureResource& texture = brandingIcon_.Texture();
+        const backend::TextureResource& texture = brandIcon_.Texture();
         const ImTextureID textureId =
             static_cast<ImTextureID>(texture.gpuDescriptor.ptr);
         drawList->AddImage(
@@ -430,7 +580,8 @@ void Menu::DrawNeonHeader() const {
         drawList->AddImage(
             textureId,
             rightIconPosition,
-            {rightIconPosition.x + iconSize, rightIconPosition.y + iconSize});
+            {rightIconPosition.x + iconSize,
+             rightIconPosition.y + iconSize});
     }
 
     for (const ImVec2 offset : {
@@ -453,11 +604,16 @@ void Menu::DrawNeonHeader() const {
         WithAlpha(accent, 1.0F),
         title.data(),
         title.data() + title.size());
+
+    ImVec4 highlight = accent;
+    highlight.x = std::min(highlight.x + 0.30F, 1.0F);
+    highlight.y = std::min(highlight.y + 0.30F, 1.0F);
+    highlight.z = std::min(highlight.z + 0.30F, 1.0F);
     drawList->AddText(
         font,
         size,
         {textPosition.x, textPosition.y - 1.0F},
-        IM_COL32(205, 240, 255, 210),
+        WithAlpha(highlight, 0.88F),
         title.data(),
         title.data() + title.size());
 
@@ -468,6 +624,50 @@ void Menu::DrawNeonHeader() const {
         WithAlpha(accent, 0.75F),
         1.5F);
     ImGui::Dummy({totalWidth, totalHeight + 7.0F});
+}
+
+void Menu::DrawBottomHeader() const {
+    const MenuPage page = CurrentPage();
+    const std::string_view title = PageTitle(page);
+    const std::string_view description = PageDescription(page);
+    const ImVec4 accent = themes_.Accent();
+
+    ImGui::PushStyleColor(
+        ImGuiCol_ChildBg,
+        ImVec4{
+            accent.x * 0.045F,
+            accent.y * 0.045F,
+            accent.z * 0.045F,
+            0.88F});
+    ImGui::PushStyleColor(
+        ImGuiCol_Border,
+        ImVec4{accent.x, accent.y, accent.z, 0.58F});
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 7.0F);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0F);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{10.0F, 7.0F});
+
+    if (ImGui::BeginChild(
+            "##bottom_header",
+            {0.0F, 62.0F},
+            true,
+            ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoScrollWithMouse)) {
+        ImGui::TextColored(
+            accent,
+            "%.*s",
+            static_cast<int>(title.size()),
+            title.data());
+        ImGui::SameLine();
+        ImGui::TextDisabled("|  F5 HIDE");
+        ImGui::TextWrapped(
+            "%.*s",
+            static_cast<int>(description.size()),
+            description.data());
+    }
+    ImGui::EndChild();
+
+    ImGui::PopStyleVar(3);
+    ImGui::PopStyleColor(2);
 }
 
 void Menu::RenderInfoCard(const std::string_view text) const {
@@ -719,7 +919,8 @@ void Menu::RenderOnlineSessions() {
     RenderFeatureCategory("Online Sessions");
 
     const float buttonWidth =
-        (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5F;
+        (ImGui::GetContentRegionAvail().x -
+         ImGui::GetStyle().ItemSpacing.x) * 0.5F;
     if (ImGui::Button("Refresh Sessions", {buttonWidth, 40.0F})) {
         notifications_.Push(
             "Session refresh simulated; no provider is connected.",
@@ -748,8 +949,8 @@ void Menu::RenderMisc() {
 
 void Menu::RenderSettings() {
     SubmenuButton("Lua", MenuPage::Lua);
+    SubmenuButton("Style Editor", MenuPage::StyleEditor);
     SubmenuButton("Themes", MenuPage::Themes);
-    SubmenuButton("ImGui Style Editor", MenuPage::StyleEditor);
     SubmenuButton("Image Loader", MenuPage::Images);
     SubmenuButton("Font Selection", MenuPage::Fonts);
     SubmenuButton("Save / Load Settings", MenuPage::Configurations);
@@ -763,20 +964,261 @@ void Menu::RenderSettings() {
         callbacks_.toggleVisibility();
     }
 
-    ImGui::PushStyleColor(ImGuiCol_Button, {0.46F, 0.10F, 0.13F, 1.0F});
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.62F, 0.14F, 0.18F, 1.0F});
+    const ImVec4 accent = themes_.Accent();
+    ImGui::PushStyleColor(
+        ImGuiCol_Button,
+        ImVec4{accent.x, accent.y, accent.z, 0.26F});
+    ImGui::PushStyleColor(
+        ImGuiCol_ButtonHovered,
+        ImVec4{accent.x, accent.y, accent.z, 0.56F});
     if (ImGui::Button("Exit Menu", {-1.0F, 40.0F}) && callbacks_.requestExit) {
         callbacks_.requestExit();
     }
     ImGui::PopStyleColor(2);
 }
 
+void Menu::RenderLua() {
+    RenderInfoCard(lua_.StatusText());
+
+    ImGui::TextDisabled("Script interface");
+    if (lua_.HasMenuContent()) {
+        ImGui::PushID("LuaScriptInterface");
+        lua_.DrawMenu();
+        ImGui::PopID();
+    } else {
+        ImGui::TextWrapped(
+            "Loaded scripts can add controls here with direct.ui or "
+            "event.on(\"menu\", function() ... end). Scripts may also use "
+            "the immediate-mode ImGui/imgui table inside menu and draw callbacks.");
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    auto& scriptsManager = lua_.ScriptsManager();
+    const std::string scriptsDirectory =
+        filesystem::FileSystemManager::ToUtf8(
+            scriptsManager.Directory().wstring());
+
+    ImGui::TextDisabled("Lua script folder");
+    ImGui::TextWrapped("%s", scriptsDirectory.c_str());
+    if (ImGui::Button("Copy Folder Path", {150.0F, 36.0F})) {
+        ImGui::SetClipboardText(scriptsDirectory.c_str());
+        notifications_.Push(
+            "Lua script folder copied to the clipboard.",
+            NotificationKind::Success);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Refresh Scripts", {150.0F, 36.0F})) {
+        lua_.Refresh();
+        notifications_.Push(
+            std::format(
+                "Lua script list refreshed: {} file(s) found.",
+                scriptsManager.Scripts().size()),
+            NotificationKind::Success);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reload All", {-1.0F, 36.0F})) {
+        std::vector<std::string> names;
+        names.reserve(scriptsManager.Scripts().size());
+        for (const auto& script : scriptsManager.Scripts()) {
+            if (script.enabled) {
+                names.push_back(script.name);
+            }
+        }
+
+        std::size_t loadedCount = 0;
+        for (const std::string& name : names) {
+            if (scriptsManager.Reload(name)) {
+                ++loadedCount;
+            }
+        }
+
+        const std::size_t failedCount = names.size() - loadedCount;
+        if (failedCount == 0) {
+            notifications_.Push(
+                std::format("Reloaded {} Lua script(s).", loadedCount),
+                NotificationKind::Success);
+        } else {
+            notifications_.Push(
+                std::format(
+                    "Reloaded {} Lua script(s); {} failed. See each script's error below.",
+                    loadedCount,
+                    failedCount),
+                NotificationKind::Error,
+                6.0);
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::TextDisabled("Scripts");
+    if (scriptsManager.Scripts().empty()) {
+        ImGui::TextWrapped(
+            "No .lua files were found. Place scripts in the folder shown above, "
+            "then select Refresh Scripts.");
+    } else {
+        for (const auto& script : scriptsManager.Scripts()) {
+            ImGui::PushID(script.name.c_str());
+
+            const ImVec4 statusColor = script.loaded
+                ? ImVec4{0.24F, 0.78F, 0.48F, 1.0F}
+                : (script.lastError.empty()
+                    ? ImVec4{0.70F, 0.72F, 0.76F, 1.0F}
+                    : ImVec4{0.92F, 0.30F, 0.34F, 1.0F});
+            ImGui::PushStyleColor(ImGuiCol_Text, statusColor);
+            ImGui::TextUnformatted(
+                script.loaded ? "LOADED" :
+                (script.lastError.empty() ? "UNLOADED" : "ERROR"));
+            ImGui::PopStyleColor();
+            ImGui::SameLine();
+            ImGui::TextUnformatted(script.name.c_str());
+
+            bool enabled = script.enabled;
+            if (ImGui::Checkbox("Enabled", &enabled)) {
+                const std::string name = script.name;
+                scripting::ScriptRecord* mutableScript =
+                    scriptsManager.Find(name);
+                if (mutableScript != nullptr) {
+                    if (!enabled && mutableScript->loaded) {
+                        (void)scriptsManager.Unload(name);
+                    }
+                    mutableScript->enabled = enabled;
+                    if (enabled && mutableScript->autoLoad &&
+                        !mutableScript->loaded) {
+                        (void)scriptsManager.Load(name);
+                    }
+                    notifications_.Push(
+                        std::format(
+                            "{} Lua script: {}",
+                            enabled ? "Enabled" : "Disabled",
+                            name),
+                        NotificationKind::Success);
+                }
+            }
+            ImGui::SameLine();
+            bool autoLoad = script.autoLoad;
+            if (ImGui::Checkbox("AutoLoad", &autoLoad)) {
+                const std::string name = script.name;
+                scripting::ScriptRecord* mutableScript =
+                    scriptsManager.Find(name);
+                if (mutableScript != nullptr) {
+                    mutableScript->autoLoad = autoLoad;
+                    if (autoLoad && mutableScript->enabled &&
+                        !mutableScript->loaded) {
+                        (void)scriptsManager.Load(name);
+                    }
+                    notifications_.Push(
+                        std::format(
+                            "AutoLoad {} for {} (this session).",
+                            autoLoad ? "enabled" : "disabled",
+                            name),
+                        NotificationKind::Info);
+                }
+            }
+
+            ImGui::BeginDisabled(script.loaded || !script.enabled);
+            if (ImGui::Button("Load", {92.0F, 34.0F})) {
+                const std::string name = script.name;
+                if (scriptsManager.Load(name)) {
+                    notifications_.Push(
+                        "Loaded Lua script: " + name,
+                        NotificationKind::Success);
+                } else {
+                    const auto* failed = scriptsManager.Find(name);
+                    const std::string detail =
+                        failed != nullptr && !failed->lastError.empty()
+                            ? failed->lastError
+                            : "The script is disabled or could not be loaded.";
+                    notifications_.Push(
+                        "Failed to load " + name + ": " + detail,
+                        NotificationKind::Error,
+                        6.0);
+                }
+            }
+            ImGui::EndDisabled();
+
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!script.enabled);
+            if (ImGui::Button("Reload", {92.0F, 34.0F})) {
+                const std::string name = script.name;
+                if (scriptsManager.Reload(name)) {
+                    notifications_.Push(
+                        "Reloaded Lua script: " + name,
+                        NotificationKind::Success);
+                } else {
+                    const auto* failed = scriptsManager.Find(name);
+                    const std::string detail =
+                        failed != nullptr && !failed->lastError.empty()
+                            ? failed->lastError
+                            : "The script could not be reloaded.";
+                    notifications_.Push(
+                        "Failed to reload " + name + ": " + detail,
+                        NotificationKind::Error,
+                        6.0);
+                }
+            }
+            ImGui::EndDisabled();
+
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!script.loaded);
+            if (ImGui::Button("Unload", {-1.0F, 34.0F})) {
+                const std::string name = script.name;
+                if (scriptsManager.Unload(name)) {
+                    notifications_.Push(
+                        "Unloaded Lua script: " + name,
+                        NotificationKind::Success);
+                } else {
+                    notifications_.Push(
+                        "Could not unload Lua script: " + name,
+                        NotificationKind::Warning);
+                }
+            }
+            ImGui::EndDisabled();
+
+            ImGui::TextDisabled(
+                "Author: %s  |  Version: %s  |  API: %s",
+                script.author.empty() ? "Unknown" : script.author.c_str(),
+                script.version.empty() ? "Unknown" : script.version.c_str(),
+                script.apiVersion.empty() ? "Unknown" : script.apiVersion.c_str());
+            if (!script.description.empty()) {
+                ImGui::TextWrapped("%s", script.description.c_str());
+            }
+
+            if (!script.permissions.empty()) {
+                std::string permissions;
+                for (const auto& permission : script.permissions) {
+                    if (!permissions.empty()) permissions += ", ";
+                    permissions += permission;
+                }
+                ImGui::TextDisabled("Permissions: %s", permissions.c_str());
+            }
+
+            if (!script.lastError.empty()) {
+                ImGui::PushStyleColor(
+                    ImGuiCol_Text,
+                    ImVec4{0.92F, 0.30F, 0.34F, 1.0F});
+                ImGui::TextWrapped("Error: %s", script.lastError.c_str());
+                ImGui::PopStyleColor();
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            ImGui::PopID();
+        }
+    }
+}
+
 void Menu::RenderStyleEditor() {
     RenderInfoCard(
-        "Edit the active Dear ImGui style live. Save Current Style writes all "
-        "style values and colors into the selected configuration.");
+        "Changes apply immediately and remain active for this run. Reapply the "
+        "selected Direct Menu theme at any time to recover its intended colors "
+        "and spacing.");
 
-    if (ImGui::Button("Save Current Style", {-1.0F, 40.0F})) {
+    if (ImGui::Button("Save Current Style", {-1.0F, 38.0F})) {
         fonts_.SyncFromImGui();
         settings_.theme = std::string{themes_.Current()};
         settings_.font = std::string{fonts_.Current()};
@@ -795,180 +1237,39 @@ void Menu::RenderStyleEditor() {
                     configurationName_.data()),
                 NotificationKind::Success);
         } else {
-            notifications_.Push(error, NotificationKind::Error, 5.0);
+            notifications_.Push(error, NotificationKind::Error, 6.0);
         }
     }
-    ImGui::Spacing();
 
-    ImGui::PushID("DirectMenuStyleEditor");
-    ImGui::ShowStyleEditor();
-    ImGui::PopID();
-}
-
-void Menu::RenderLua() {
-    RenderInfoCard(lua_.StatusText());
-
-    ImGui::SeparatorText("Script Interface");
-    if (lua_.HasMenuContent()) {
-        ImGui::PushID("LuaScriptInterface");
-        lua_.DrawMenu();
-        ImGui::PopID();
-    } else {
-        ImGui::TextWrapped(
-            "Loaded scripts can place controls here with ui.text/ui.button/"
-            "ui.checkbox or event.on(\"menu\", function() ... end).");
-    }
-
-    ImGui::Spacing();
-    ImGui::SeparatorText("Script Management");
-
-    if (ImGui::Button("Open LuaScripts Folder", {-1.0F, 38.0F})) {
-        if (!fileSystem_.OpenFolder(window_, fileSystem_.LuaScripts())) {
+    if (ImGui::Button("Reapply Direct Menu Theme", {-1.0F, 38.0F})) {
+        if (themes_.Apply(settings_.theme)) {
             notifications_.Push(
-                "The LuaScripts folder could not be opened.",
+                "Reapplied the selected Direct Menu theme.",
+                NotificationKind::Success);
+        } else {
+            notifications_.Push(
+                "The selected theme could not be reapplied.",
                 NotificationKind::Error);
         }
     }
 
-    const float toolbarWidth =
-        (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5F;
-    if (ImGui::Button("Refresh", {toolbarWidth, 38.0F})) {
-        lua_.Refresh();
-        notifications_.Push("Lua script list refreshed.", NotificationKind::Success);
+    if (ImGui::Button("Reset to ImGui Dark Defaults", {-1.0F, 38.0F})) {
+        ImGui::StyleColorsDark(&ImGui::GetStyle());
+        notifications_.Push(
+            "Reset the editor to ImGui dark defaults. Use Reapply Direct Menu Theme to restore branding.",
+            NotificationKind::Info,
+            6.0);
     }
-    ImGui::SameLine();
-
-    const std::size_t loadedCount = std::ranges::count_if(
-        lua_.Scripts(),
-        [](const scripting::ScriptRecord& script) { return script.loaded; });
-    ImGui::BeginDisabled(loadedCount == 0);
-    if (ImGui::Button("Reload All", {-1.0F, 38.0F})) {
-        const std::size_t reloaded = lua_.ScriptsManager().ReloadAll();
-        if (reloaded == loadedCount) {
-            notifications_.Push(
-                std::format("Reloaded {} Lua script(s).", reloaded),
-                NotificationKind::Success);
-        } else {
-            notifications_.Push(
-                std::format(
-                    "Reloaded {} of {} Lua script(s); review the errors below.",
-                    reloaded,
-                    loadedCount),
-                NotificationKind::Warning,
-                5.0);
-        }
-    }
-    ImGui::EndDisabled();
 
     ImGui::Spacing();
-    ImGui::TextDisabled("Detected .lua files (%zu)", lua_.Scripts().size());
-    if (lua_.Scripts().empty()) {
-        ImGui::TextWrapped(
-            "No scripts found. Add .lua files to the LuaScripts folder, then "
-            "select Refresh. New scripts are loaded automatically by default.");
-    } else {
-        for (const auto& script : lua_.Scripts()) {
-            ImGui::PushID(script.name.c_str());
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            const char* status = "Unloaded";
-            ImVec4 statusColor{0.58F, 0.62F, 0.68F, 1.0F};
-            if (script.loaded) {
-                status = "Loaded";
-                statusColor = {0.30F, 0.86F, 0.52F, 1.0F};
-            } else if (!script.lastError.empty()) {
-                status = "Error";
-                statusColor = {0.96F, 0.32F, 0.34F, 1.0F};
-            }
-
-            ImGui::TextColored(statusColor, "%s", status);
-            ImGui::SameLine();
-            ImGui::TextUnformatted(script.name.c_str());
-
-            bool autoLoad = script.autoLoad;
-            if (ImGui::Checkbox("Auto-Load", &autoLoad)) {
-                if (scripting::ScriptRecord* mutableScript =
-                        lua_.ScriptsManager().Find(script.name)) {
-                    mutableScript->autoLoad = autoLoad;
-                }
-            }
-            if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip(
-                    "Automatically load this script after discovery during "
-                    "the current session.");
-            }
-
-            if (!script.author.empty() || !script.version.empty()) {
-                std::string details;
-                if (!script.author.empty()) {
-                    details = "Author: " + script.author;
-                }
-                if (!script.version.empty()) {
-                    if (!details.empty()) {
-                        details += "  |  ";
-                    }
-                    details += "Version: " + script.version;
-                }
-                ImGui::TextDisabled("%s", details.c_str());
-            }
-            if (!script.description.empty()) {
-                ImGui::TextWrapped("%s", script.description.c_str());
-            }
-
-            if (script.loaded) {
-                const float actionWidth =
-                    (ImGui::GetContentRegionAvail().x -
-                     ImGui::GetStyle().ItemSpacing.x) * 0.5F;
-                if (ImGui::Button("Unload", {actionWidth, 34.0F})) {
-                    if (lua_.ScriptsManager().Unload(script.name)) {
-                        notifications_.Push(
-                            "Unloaded " + script.name + '.',
-                            NotificationKind::Success);
-                    }
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Reload", {-1.0F, 34.0F})) {
-                    if (lua_.ScriptsManager().Reload(script.name)) {
-                        notifications_.Push(
-                            "Reloaded " + script.name + '.',
-                            NotificationKind::Success);
-                    } else {
-                        notifications_.Push(
-                            "Reload failed for " + script.name + '.',
-                            NotificationKind::Error,
-                            5.0);
-                    }
-                }
-            } else if (ImGui::Button("Load", {-1.0F, 34.0F})) {
-                if (lua_.ScriptsManager().Load(script.name)) {
-                    notifications_.Push(
-                        "Loaded " + script.name + '.',
-                        NotificationKind::Success);
-                } else {
-                    notifications_.Push(
-                        "Load failed for " + script.name + '.',
-                        NotificationKind::Error,
-                        5.0);
-                }
-            }
-
-            if (!script.lastError.empty()) {
-                ImGui::PushStyleColor(
-                    ImGuiCol_Text,
-                    ImVec4{0.96F, 0.42F, 0.44F, 1.0F});
-                ImGui::TextWrapped("Error: %s", script.lastError.c_str());
-                ImGui::PopStyleColor();
-            }
-
-            ImGui::Spacing();
-            ImGui::PopID();
-        }
-    }
+    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::ShowStyleEditor(&ImGui::GetStyle());
 }
 
 void Menu::RenderThemes() {
-    RenderInfoCard("Theme changes are applied immediately and saved in configurations.");
+    RenderInfoCard(
+        "Theme changes recolor controls, borders, headers, and Reaper artwork immediately.");
 
     for (const ThemeEntry& theme : themes_.Themes()) {
         ImGui::PushID(theme.id.c_str());
@@ -994,7 +1295,8 @@ void Menu::RenderThemes() {
 void Menu::RenderImages() {
     RenderInfoCard(
         "Load PNG, JPG, BMP, or TIFF images through Windows Imaging "
-        "Component. The loaded texture is applied to the menu background live.");
+        "Component. A custom image overrides the built-in Reaper background; "
+        "clearing it restores the built-in artwork.");
 
     ImGui::InputText(
         "Image Path",
@@ -1058,12 +1360,26 @@ void Menu::RenderImages() {
             static_cast<ImTextureID>(texture.gpuDescriptor.ptr),
             previewSize);
 
-        if (ImGui::Button("Clear Image", {-1.0F, 36.0F})) {
+        if (ImGui::Button("Clear Custom Image", {-1.0F, 36.0F})) {
             images_.Clear(backend_);
             imagePath_.fill('\0');
             settings_.imagePath.clear();
-            notifications_.Push("Image cleared.", NotificationKind::Info);
+            notifications_.Push(
+                "Custom image cleared; built-in Reaper background restored.",
+                NotificationKind::Info);
         }
+    } else if (brandBackground_.HasImage()) {
+        ImGui::Spacing();
+        ImGui::Checkbox(
+            "Apply Built-in Reaper Background",
+            &settings_.imageBackgroundEnabled);
+        ImGui::SliderFloat(
+            "Background Brightness",
+            &settings_.imageBackgroundOpacity,
+            0.05F,
+            1.0F,
+            "%.2f");
+        ImGui::TextDisabled("Built-in Reaper background is active.");
     }
 }
 
@@ -1097,8 +1413,8 @@ void Menu::RenderFonts() {
 
 void Menu::RenderConfigurations() {
     RenderInfoCard(
-        "Configurations save the complete ImGui style, selected theme, font, "
-        "image path, and every registered feature value.");
+        "Configurations save the selected theme, font, image path, and every "
+        "registered feature value.");
 
     ImGui::InputText(
         "Config Name",
@@ -1163,7 +1479,7 @@ void Menu::RenderConfigurations() {
 
 void Menu::ApplyLoadedSettings() {
     if (!themes_.Apply(settings_.theme)) {
-        settings_.theme = "Midnight";
+        settings_.theme = "Reaper";
         themes_.Apply(settings_.theme);
     }
     settings_.imguiStyle.Apply(ImGui::GetStyle());
@@ -1181,7 +1497,8 @@ void Menu::ApplyLoadedSettings() {
         std::string imageError;
         if (!images_.Load(path, backend_, imageError)) {
             notifications_.Push(
-                "Settings loaded, but the saved image could not be loaded.",
+                "Settings loaded, but the saved image could not be loaded. "
+                "The built-in Reaper background will be used instead.",
                 NotificationKind::Warning,
                 5.0);
         }

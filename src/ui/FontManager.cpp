@@ -76,9 +76,7 @@ void FontManager::SyncFromImGui() {
         [&io](const FontEntry& entry) {
             return entry.font == io.FontDefault;
         });
-    if (found != fonts_.end()) {
-        current_ = found->id;
-    }
+    if (found != fonts_.end()) current_ = found->id;
     SetScale(io.FontGlobalScale);
 }
 

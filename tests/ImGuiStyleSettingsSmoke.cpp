@@ -13,9 +13,7 @@ bool NearlyEqual(const float left, const float right) {
 }
 
 bool Expect(const bool condition, const std::string_view message) {
-    if (!condition) {
-        std::cerr << message << '\n';
-    }
+    if (!condition) std::cerr << message << '\n';
     return condition;
 }
 
@@ -54,7 +52,7 @@ int main() {
 
     bool passed = true;
     passed &= Expect(parsed, "A serialized ImGui style value failed to parse.");
-    passed &= Expect(loaded.HasValue(), "Loaded ImGui style was not marked valid.");
+    passed &= Expect(loaded.HasValue(), "Loaded style was not marked valid.");
     passed &= Expect(
         NearlyEqual(restored.WindowPadding.x, 23.0F) &&
             NearlyEqual(restored.WindowPadding.y, 17.0F),
@@ -72,6 +70,5 @@ int main() {
         NearlyEqual(restored.Colors[ImGuiCol_Button].x, 0.12F) &&
             NearlyEqual(restored.Colors[ImGuiCol_Button].w, 0.78F),
         "ImGui colors did not survive style persistence.");
-
     return passed ? 0 : 1;
 }

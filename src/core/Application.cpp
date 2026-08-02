@@ -38,8 +38,10 @@ Application::Application()
     : configs_(fileSystem_, logger_),
       lua_(logger_),
       fonts_(logger_),
-      images_(logger_),
-      brandingIcon_(logger_) {
+      brandBackground_(logger_),
+      brandHeader_(logger_),
+      brandIcon_(logger_),
+      images_(logger_) {
 }
 
 Application::~Application() {
@@ -94,8 +96,8 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
     }
 
     RegisterBuiltInFeatures();
-    lua_.Initialize(fileSystem_.LuaScripts());
     lua_.BindFeatureRegistry(features_);
+    lua_.Initialize(fileSystem_.LuaScripts());
 
     ui::MenuCallbacks callbacks{};
     callbacks.toggleVisibility = [this] {
@@ -113,8 +115,10 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
         fileSystem_,
         lua_,
         fonts_,
+        brandBackground_,
+        brandHeader_,
+        brandIcon_,
         images_,
-        brandingIcon_,
         notifications_,
         themes_,
         settings_,
@@ -161,6 +165,8 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
 
         backend_.NewFrame();
         ImGui::NewFrame();
+        lua_.Update();
+        lua_.Draw();
 
         if (menu_->WelcomeComplete()) {
             menu_->RenderMain();
@@ -340,28 +346,47 @@ bool Application::InitializeGraphics(std::string& errorMessage) {
         executablePath.data(),
         static_cast<DWORD>(executablePath.size()));
     if (pathLength > 0 && pathLength < executablePath.size()) {
+        const std::filesystem::path assetsDirectory =
+            std::filesystem::path{executablePath.data()}.parent_path() / L"assets";
+
         const std::filesystem::path defaultBackground =
-            std::filesystem::path{executablePath.data()}.parent_path() /
-            L"assets" / L"direct_menu_neon_background.jpg";
+            assetsDirectory / L"direct_menu_background.jpg";
+        const std::filesystem::path legacyBackground =
+            assetsDirectory / L"direct_menu_neon_background.jpg";
+        const std::filesystem::path defaultHeader =
+            assetsDirectory / L"direct_menu_header.jpg";
+        const std::filesystem::path defaultIcon =
+            assetsDirectory / L"grim_reaper_icon.png";
+
+        std::string imageError;
         if (std::filesystem::exists(defaultBackground)) {
-            std::string imageError;
-            if (!images_.Load(defaultBackground, backend_, imageError)) {
+            if (!brandBackground_.Load(defaultBackground, backend_, imageError)) {
                 logger_.Warning(
-                    "The included neon background could not be loaded: " +
+                    "The included Reaper background could not be loaded: " +
+                    imageError);
+            }
+        } else if (std::filesystem::exists(legacyBackground)) {
+            if (!brandBackground_.Load(legacyBackground, backend_, imageError)) {
+                logger_.Warning(
+                    "The fallback background could not be loaded: " +
                     imageError);
             }
         }
 
-        const std::filesystem::path brandingIcon =
-            std::filesystem::path{executablePath.data()}.parent_path() /
-            L"assets" / L"grim_reaper_icon.png";
-        if (std::filesystem::exists(brandingIcon)) {
-            std::string imageError;
-            if (!brandingIcon_.Load(brandingIcon, backend_, imageError)) {
-                logger_.Warning(
-                    "The Grim Reaper header icon could not be loaded: " +
-                    imageError);
-            }
+        imageError.clear();
+        if (std::filesystem::exists(defaultHeader) &&
+            !brandHeader_.Load(defaultHeader, backend_, imageError)) {
+            logger_.Warning(
+                "The included Direct Menu Reaper header could not be loaded: " +
+                imageError);
+        }
+
+        imageError.clear();
+        if (std::filesystem::exists(defaultIcon) &&
+            !brandIcon_.Load(defaultIcon, backend_, imageError)) {
+            logger_.Warning(
+                "The Grim Reaper header icon could not be loaded: " +
+                imageError);
         }
     }
 
@@ -569,12 +594,19 @@ void Application::Cleanup() {
     }
 
     tasks_.Shutdown();
+    lua_.Shutdown();
     menu_.reset();
     if (images_.HasImage()) {
         images_.Clear(backend_);
     }
-    if (brandingIcon_.HasImage()) {
-        brandingIcon_.Clear(backend_);
+    if (brandHeader_.HasImage()) {
+        brandHeader_.Clear(backend_);
+    }
+    if (brandIcon_.HasImage()) {
+        brandIcon_.Clear(backend_);
+    }
+    if (brandBackground_.HasImage()) {
+        brandBackground_.Clear(backend_);
     }
 
     if (imguiContextCreated_) {
