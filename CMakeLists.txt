@@ -113,6 +113,8 @@ add_executable(Direct_Menu WIN32
     src/core/ImGuiStyleSettings.cpp
     src/core/Logger.cpp
     src/core/MemoryManagerAPI.cpp
+    src/core/PatternCache.cpp
+    src/core/SignatureManager.cpp
     src/core/TaskQueue.cpp
     src/features/FeatureRegistry.cpp
     src/filesystem/FileSystemManager.cpp
@@ -124,6 +126,7 @@ add_executable(Direct_Menu WIN32
     src/scripting/LuaFileSystemSandbox.cpp
     src/scripting/LuaImGuiBindings.cpp
     src/scripting/LuaManager.cpp
+    src/scripting/LuaMemoryBindings.cpp
     src/scripting/LuaModule.cpp
     src/scripting/LuaModuleManager.cpp
     src/scripting/LuaScriptsManager.cpp
@@ -229,6 +232,9 @@ if(BUILD_TESTING)
 
     add_executable(LuaRuntimeSmoke
         tests/LuaRuntimeSmoke.cpp
+        src/core/Logger.cpp
+        src/core/MemoryManagerAPI.cpp
+        src/core/SignatureManager.cpp
         src/features/FeatureRegistry.cpp
         src/logging/Logger.cpp
         src/scripting/LuaBindingLibrary.cpp
@@ -237,6 +243,7 @@ if(BUILD_TESTING)
         src/scripting/LuaFileSystemSandbox.cpp
         src/scripting/LuaImGuiBindings.cpp
         src/scripting/LuaManager.cpp
+        src/scripting/LuaMemoryBindings.cpp
         src/scripting/LuaModule.cpp
         src/scripting/LuaModuleManager.cpp
         src/scripting/LuaScriptsManager.cpp
