@@ -129,7 +129,6 @@ void LuaBindingLibrary::RegisterDirectApiV2() {
     version["string"] = "2.0.0";
     direct["api_version"] = version;
 
-    // Backward-compatible services are also exposed through the v2 namespace.
     direct["log"] = lua_["log"];
     direct["command"] = lua_["command"];
     direct["events"] = lua_["event"];
@@ -143,13 +142,18 @@ void LuaBindingLibrary::RegisterDirectApiV2() {
         const std::string description = manifest.get_or("description", std::string{});
         const std::string apiVersion = manifest.get_or("api", std::string{"2.0"});
         std::vector<std::string> permissions;
-        const sol::optional<sol::table> requested = manifest["permissions"];
-        if (requested.has_value()) {
-            for (const auto& item : requested.value()) {
+
+        const sol::object permissionObject = manifest["permissions"];
+        if (permissionObject.valid() && permissionObject.get_type() == sol::type::table) {
+            const sol::table requested = permissionObject.as<sol::table>();
+            for (const auto& item : requested) {
                 const sol::object value = item.second;
-                if (value.is<std::string>()) permissions.push_back(value.as<std::string>());
+                if (value.is<std::string>()) {
+                    permissions.push_back(value.as<std::string>());
+                }
             }
         }
+
         if (metadataCallback_) {
             metadataCallback_(ownerProvider_(), author, versionText, description, apiVersion, std::move(permissions));
         }
