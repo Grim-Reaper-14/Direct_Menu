@@ -51,6 +51,7 @@ add_executable(Direct_Menu WIN32
     src/backend/D3D12Backend.cpp
     src/config/ConfigManager.cpp
     src/core/Application.cpp
+    src/core/File_System_Monitor.cpp
     src/core/Logger.cpp
     src/core/TaskQueue.cpp
     src/features/FeatureRegistry.cpp
