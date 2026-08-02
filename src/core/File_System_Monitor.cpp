@@ -256,7 +256,9 @@ void FileSystemMonitor::RunWatch(
                 break;
             case FILE_ACTION_RENAMED_NEW_NAME:
                 event.type = EventType::Renamed;
-                event.oldPath = std::exchange(pendingRenameOld, {});
+                event.oldPath = std::exchange(
+                    pendingRenameOld,
+                    std::filesystem::path{});
                 break;
             default:
                 deliver = false;
