@@ -3,6 +3,7 @@
 #include "logging/Logger.hpp"
 #include "scripting/LuaCommands.hpp"
 #include "scripting/LuaEvents.hpp"
+#include "scripting/LuaFileSystemSandbox.hpp"
 #include "scripting/LuaModule.hpp"
 #include "scripting/LuaModuleManager.hpp"
 #include "scripting/LuaTimerManager.hpp"
@@ -24,8 +25,10 @@ LuaBindingLibrary::LuaBindingLibrary(
     LuaTimerManager& timers,
     LuaUI& ui,
     LuaModuleManager& modules,
+    LuaFileSystemSandbox& fileSystem,
     OwnerProvider ownerProvider,
     RefreshCallback refreshCallback,
+    PermissionCallback permissionCallback,
     MetadataCallback metadataCallback)
     : logger_(logger),
       lua_(lua),
@@ -34,8 +37,10 @@ LuaBindingLibrary::LuaBindingLibrary(
       timers_(timers),
       ui_(ui),
       modules_(modules),
+      fileSystem_(fileSystem),
       ownerProvider_(std::move(ownerProvider)),
       refreshCallback_(std::move(refreshCallback)),
+      permissionCallback_(std::move(permissionCallback)),
       metadataCallback_(std::move(metadataCallback)) {}
 
 void LuaBindingLibrary::BindFeatureRegistry(features::FeatureRegistry& registry) noexcept { registry_ = &registry; }
@@ -48,10 +53,11 @@ void LuaBindingLibrary::RegisterCoreBindings() {
     RegisterTimers();
     RegisterUI();
     RegisterApplication();
+    RegisterFileSystem();
     RegisterDirectApiV2();
-    lua_["LUA_API_VERSION"] = "2.0.0";
+    lua_["LUA_API_VERSION"] = "2.1.0";
     ready_ = true;
-    logger_.Info("Lua binding library initialized: Direct Menu API v2.0.0.");
+    logger_.Info("Lua binding library initialized: Direct Menu API v2.1.0 with filesystem sandbox.");
 }
 
 void LuaBindingLibrary::RegisterLogging() {
@@ -119,14 +125,66 @@ void LuaBindingLibrary::RegisterApplication() {
     app.set_function("refresh_scripts", [this](){ refreshCallback_(); });
 }
 
+void LuaBindingLibrary::RegisterFileSystem() {
+    sol::table files = lua_.create_named_table("files");
+
+    files.set_function("exists", [this](const std::string& path) {
+        if (!RequirePermission("filesystem.read")) return false;
+        return fileSystem_.Exists(ownerProvider_(), path);
+    });
+
+    files.set_function("is_directory", [this](const std::string& path) {
+        if (!RequirePermission("filesystem.read")) return false;
+        return fileSystem_.IsDirectory(ownerProvider_(), path);
+    });
+
+    files.set_function("read_text", [this](sol::this_state state, const std::string& path) -> sol::object {
+        sol::state_view lua(state);
+        if (!RequirePermission("filesystem.read")) return sol::make_object(lua, sol::nil);
+        const auto contents = fileSystem_.ReadText(ownerProvider_(), path);
+        if (!contents.has_value()) return sol::make_object(lua, sol::nil);
+        return sol::make_object(lua, *contents);
+    });
+
+    files.set_function("write_text", [this](const std::string& path, const std::string& contents) {
+        if (!RequirePermission("filesystem.write")) return false;
+        return fileSystem_.WriteText(ownerProvider_(), path, contents);
+    });
+
+    files.set_function("append_text", [this](const std::string& path, const std::string& contents) {
+        if (!RequirePermission("filesystem.write")) return false;
+        return fileSystem_.AppendText(ownerProvider_(), path, contents);
+    });
+
+    files.set_function("create_directory", [this](const std::string& path) {
+        if (!RequirePermission("filesystem.write")) return false;
+        return fileSystem_.CreateDirectory(ownerProvider_(), path);
+    });
+
+    files.set_function("remove", [this](const std::string& path) {
+        if (!RequirePermission("filesystem.write")) return false;
+        return fileSystem_.Remove(ownerProvider_(), path);
+    });
+
+    files.set_function("list", [this](const std::string& path) {
+        sol::table result = lua_.create_table();
+        if (!RequirePermission("filesystem.read")) return result;
+        std::size_t index = 1;
+        for (const std::string& entry : fileSystem_.List(ownerProvider_(), path)) {
+            result[index++] = entry;
+        }
+        return result;
+    });
+}
+
 void LuaBindingLibrary::RegisterDirectApiV2() {
     sol::table direct = lua_.create_named_table("direct");
 
     sol::table version = lua_.create_table();
     version["major"] = 2;
-    version["minor"] = 0;
+    version["minor"] = 1;
     version["patch"] = 0;
-    version["string"] = "2.0.0";
+    version["string"] = "2.1.0";
     direct["api_version"] = version;
 
     direct["log"] = lua_["log"];
@@ -135,25 +193,22 @@ void LuaBindingLibrary::RegisterDirectApiV2() {
     direct["timer"] = lua_["timer"];
     direct["ui"] = lua_["ui"];
     direct["app"] = lua_["app"];
+    direct["files"] = lua_["files"];
 
     direct.set_function("plugin", [this](sol::table manifest) {
         const std::string author = manifest.get_or("author", std::string{});
         const std::string versionText = manifest.get_or("version", std::string{"0.0.0"});
         const std::string description = manifest.get_or("description", std::string{});
-        const std::string apiVersion = manifest.get_or("api", std::string{"2.0"});
+        const std::string apiVersion = manifest.get_or("api", std::string{"2.1"});
         std::vector<std::string> permissions;
-
-        const sol::object permissionObject = manifest["permissions"];
-        if (permissionObject.valid() && permissionObject.get_type() == sol::type::table) {
-            const sol::table requested = permissionObject.as<sol::table>();
-            for (const auto& item : requested) {
+        const sol::object requested = manifest["permissions"];
+        if (requested.valid() && requested.get_type() == sol::type::table) {
+            const sol::table permissionTable = requested.as<sol::table>();
+            for (const auto& item : permissionTable) {
                 const sol::object value = item.second;
-                if (value.is<std::string>()) {
-                    permissions.push_back(value.as<std::string>());
-                }
+                if (value.is<std::string>()) permissions.push_back(value.as<std::string>());
             }
         }
-
         if (metadataCallback_) {
             metadataCallback_(ownerProvider_(), author, versionText, description, apiVersion, std::move(permissions));
         }
@@ -168,6 +223,17 @@ void LuaBindingLibrary::RegisterDirectApiV2() {
     });
     module.set_function("count", [this](){ return modules_.Size(); });
     direct["module"] = std::move(module);
+}
+
+bool LuaBindingLibrary::RequirePermission(const std::string_view permission) const {
+    const std::string owner = ownerProvider_();
+    if (permissionCallback_ && permissionCallback_(owner, permission)) {
+        return true;
+    }
+
+    logger_.Warning(
+        "Lua script '" + owner + "' was denied permission '" + std::string{permission} + "'.");
+    return false;
 }
 
 bool LuaBindingLibrary::Ready() const noexcept { return ready_ && registry_ != nullptr; }
