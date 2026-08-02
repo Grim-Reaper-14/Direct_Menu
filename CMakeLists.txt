@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.24)
 
 project(
     Direct_Menu
-    VERSION 0.1.0
-    DESCRIPTION "A modular Win32, Direct3D 12, and Dear ImGui side-menu framework"
-    LANGUAGES CXX
+    VERSION 0.2.0
+    DESCRIPTION "A modular Win32, Direct3D 12, Dear ImGui, and Lua side-menu framework"
+    LANGUAGES C CXX
 )
 
 if(NOT WIN32)
@@ -13,7 +13,6 @@ endif()
 
 include(FetchContent)
 
-# Pinned so the renderer API does not unexpectedly change between builds.
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
@@ -21,6 +20,65 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(imgui)
+
+# Lua is built directly from the official source tree so Direct_Menu does not
+# require a separately installed Lua SDK.
+FetchContent_Declare(
+    lua
+    GIT_REPOSITORY https://github.com/lua/lua.git
+    GIT_TAG v5.4.7
+    GIT_SHALLOW TRUE
+)
+FetchContent_GetProperties(lua)
+if(NOT lua_POPULATED)
+    FetchContent_Populate(lua)
+endif()
+
+FetchContent_Declare(
+    sol2
+    GIT_REPOSITORY https://github.com/ThePhD/sol2.git
+    GIT_TAG v3.3.1
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(sol2)
+
+add_library(lua_static STATIC
+    "${lua_SOURCE_DIR}/lapi.c"
+    "${lua_SOURCE_DIR}/lauxlib.c"
+    "${lua_SOURCE_DIR}/lbaselib.c"
+    "${lua_SOURCE_DIR}/lcode.c"
+    "${lua_SOURCE_DIR}/lcorolib.c"
+    "${lua_SOURCE_DIR}/lctype.c"
+    "${lua_SOURCE_DIR}/ldblib.c"
+    "${lua_SOURCE_DIR}/ldebug.c"
+    "${lua_SOURCE_DIR}/ldo.c"
+    "${lua_SOURCE_DIR}/ldump.c"
+    "${lua_SOURCE_DIR}/lfunc.c"
+    "${lua_SOURCE_DIR}/lgc.c"
+    "${lua_SOURCE_DIR}/linit.c"
+    "${lua_SOURCE_DIR}/liolib.c"
+    "${lua_SOURCE_DIR}/llex.c"
+    "${lua_SOURCE_DIR}/lmathlib.c"
+    "${lua_SOURCE_DIR}/lmem.c"
+    "${lua_SOURCE_DIR}/loadlib.c"
+    "${lua_SOURCE_DIR}/lobject.c"
+    "${lua_SOURCE_DIR}/lopcodes.c"
+    "${lua_SOURCE_DIR}/loslib.c"
+    "${lua_SOURCE_DIR}/lparser.c"
+    "${lua_SOURCE_DIR}/lstate.c"
+    "${lua_SOURCE_DIR}/lstring.c"
+    "${lua_SOURCE_DIR}/lstrlib.c"
+    "${lua_SOURCE_DIR}/ltable.c"
+    "${lua_SOURCE_DIR}/ltablib.c"
+    "${lua_SOURCE_DIR}/ltm.c"
+    "${lua_SOURCE_DIR}/lundump.c"
+    "${lua_SOURCE_DIR}/lutf8lib.c"
+    "${lua_SOURCE_DIR}/lvm.c"
+    "${lua_SOURCE_DIR}/lzio.c"
+)
+target_include_directories(lua_static PUBLIC "${lua_SOURCE_DIR}")
+target_compile_definitions(lua_static PRIVATE LUA_USE_WINDOWS)
+set_target_properties(lua_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_library(imgui STATIC
     "${imgui_SOURCE_DIR}/imgui.cpp"
@@ -57,7 +115,15 @@ add_executable(Direct_Menu WIN32
     src/features/FeatureRegistry.cpp
     src/filesystem/FileSystemManager.cpp
     src/logging/Logger.cpp
+    src/scripting/LuaBindingLibrary.cpp
+    src/scripting/LuaCommands.cpp
+    src/scripting/LuaEvents.cpp
     src/scripting/LuaManager.cpp
+    src/scripting/LuaModule.cpp
+    src/scripting/LuaModuleManager.cpp
+    src/scripting/LuaScriptsManager.cpp
+    src/scripting/LuaTimerManager.cpp
+    src/scripting/LuaUI.cpp
     src/ui/FontManager.cpp
     src/ui/ImageLoader.cpp
     src/ui/Menu.cpp
@@ -89,6 +155,8 @@ endif()
 
 target_link_libraries(Direct_Menu PRIVATE
     imgui
+    lua_static
+    sol2::sol2
     d3d12
     dxgi
     dxguid
