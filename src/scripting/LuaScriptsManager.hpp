@@ -22,6 +22,8 @@ struct ScriptRecord {
     std::string author;
     std::string version;
     std::string description;
+    std::string apiVersion{"2.0"};
+    std::vector<std::string> permissions;
     std::string lastError;
 };
 
