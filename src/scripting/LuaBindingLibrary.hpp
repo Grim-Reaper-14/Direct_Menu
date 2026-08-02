@@ -13,6 +13,7 @@ namespace smf::scripting {
 
 class LuaCommands;
 class LuaEvents;
+class LuaFileSystemSandbox;
 class LuaModuleManager;
 class LuaTimerManager;
 class LuaUI;
@@ -21,6 +22,7 @@ class LuaBindingLibrary {
 public:
     using OwnerProvider = std::function<std::string()>;
     using RefreshCallback = std::function<void()>;
+    using PermissionCallback = std::function<bool(std::string_view, std::string_view)>;
     using MetadataCallback = std::function<void(
         std::string_view owner,
         std::string author,
@@ -37,8 +39,10 @@ public:
         LuaTimerManager& timers,
         LuaUI& ui,
         LuaModuleManager& modules,
+        LuaFileSystemSandbox& fileSystem,
         OwnerProvider ownerProvider,
         RefreshCallback refreshCallback,
+        PermissionCallback permissionCallback,
         MetadataCallback metadataCallback);
 
     void BindFeatureRegistry(features::FeatureRegistry& registry) noexcept;
@@ -52,7 +56,9 @@ private:
     void RegisterTimers();
     void RegisterUI();
     void RegisterApplication();
+    void RegisterFileSystem();
     void RegisterDirectApiV2();
+    [[nodiscard]] bool RequirePermission(std::string_view permission) const;
 
     logging::LoggerApi& logger_;
     sol::state& lua_;
@@ -61,8 +67,10 @@ private:
     LuaTimerManager& timers_;
     LuaUI& ui_;
     LuaModuleManager& modules_;
+    LuaFileSystemSandbox& fileSystem_;
     OwnerProvider ownerProvider_;
     RefreshCallback refreshCallback_;
+    PermissionCallback permissionCallback_;
     MetadataCallback metadataCallback_;
     features::FeatureRegistry* registry_{nullptr};
     bool ready_{false};
