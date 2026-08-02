@@ -1,0 +1,243 @@
+#include "core/MemoryManagerAPI.hpp"
+
+#include "core/Logger.hpp"
+
+#include <algorithm>
+#include <format>
+
+namespace smf::core {
+
+MemoryManagerAPI::MemoryManagerAPI(Logger* logger)
+    : logger_(logger) {
+}
+
+MemoryManagerAPI::~MemoryManagerAPI() {
+    ReleaseAll();
+}
+
+void* MemoryManagerAPI::Allocate(
+    const std::size_t size,
+    std::size_t alignment,
+    std::string tag) {
+    if (size == 0) {
+        LogWarning("Memory allocation rejected because size is zero.");
+        return nullptr;
+    }
+
+    if (alignment < alignof(void*)) {
+        alignment = alignof(void*);
+    }
+
+    if ((alignment & (alignment - 1)) != 0) {
+        LogWarning("Memory allocation rejected because alignment is not a power of two.");
+        return nullptr;
+    }
+
+    void* address = nullptr;
+    try {
+        address = ::operator new(size, std::align_val_t{alignment});
+    } catch (const std::bad_alloc&) {
+        LogWarning("Memory allocation failed.");
+        return nullptr;
+    }
+
+    {
+        std::scoped_lock lock(mutex_);
+        allocations_.emplace(
+            address,
+            AllocationRecord{
+                .id = nextId_++,
+                .address = address,
+                .size = size,
+                .alignment = alignment,
+                .tag = std::move(tag)
+            });
+
+        ++stats_.liveAllocations;
+        stats_.liveBytes += size;
+        ++stats_.totalAllocations;
+        stats_.totalBytesAllocated += size;
+        stats_.peakAllocations = std::max(stats_.peakAllocations, stats_.liveAllocations);
+        stats_.peakBytes = std::max(stats_.peakBytes, stats_.liveBytes);
+    }
+
+    LogInfo(std::format("Allocated {} bytes at {}.", size, address));
+    return address;
+}
+
+bool MemoryManagerAPI::Deallocate(void* address) noexcept {
+    if (address == nullptr) {
+        return false;
+    }
+
+    AllocationRecord record{};
+    {
+        std::scoped_lock lock(mutex_);
+        const auto iterator = allocations_.find(address);
+        if (iterator == allocations_.end()) {
+            return false;
+        }
+        record = iterator->second;
+        allocations_.erase(iterator);
+
+        --stats_.liveAllocations;
+        stats_.liveBytes -= record.size;
+        ++stats_.totalDeallocations;
+    }
+
+    ::operator delete(record.address, std::align_val_t{record.alignment});
+    return true;
+}
+
+void MemoryManagerAPI::ReleaseAll() noexcept {
+    std::vector<AllocationRecord> pending;
+    {
+        std::scoped_lock lock(mutex_);
+        pending.reserve(allocations_.size());
+        for (const auto& [address, record] : allocations_) {
+            pending.push_back(record);
+        }
+        allocations_.clear();
+        stats_.totalDeallocations += stats_.liveAllocations;
+        stats_.liveAllocations = 0;
+        stats_.liveBytes = 0;
+    }
+
+    for (const AllocationRecord& record : pending) {
+        ::operator delete(record.address, std::align_val_t{record.alignment});
+    }
+}
+
+std::vector<std::byte> MemoryManagerAPI::CreateBuffer(const std::size_t size) const {
+    return std::vector<std::byte>(size);
+}
+
+bool MemoryManagerAPI::Owns(const void* address) const noexcept {
+    if (address == nullptr) {
+        return false;
+    }
+    std::scoped_lock lock(mutex_);
+    return FindContainingLocked(address, 1) != nullptr;
+}
+
+bool MemoryManagerAPI::OwnsRange(
+    const void* address,
+    const std::size_t bytes) const noexcept {
+    if (address == nullptr || bytes == 0) {
+        return false;
+    }
+    std::scoped_lock lock(mutex_);
+    return FindContainingLocked(address, bytes) != nullptr;
+}
+
+std::size_t MemoryManagerAPI::SizeOf(const void* address) const noexcept {
+    if (address == nullptr) {
+        return 0;
+    }
+
+    std::scoped_lock lock(mutex_);
+    const AllocationRecord* record = FindContainingLocked(address, 1);
+    return record == nullptr ? 0 : record->size;
+}
+
+bool MemoryManagerAPI::ReadBytes(
+    const void* address,
+    void* destination,
+    const std::size_t bytes) const noexcept {
+    if (address == nullptr || destination == nullptr || bytes == 0) {
+        return false;
+    }
+
+    {
+        std::scoped_lock lock(mutex_);
+        if (FindContainingLocked(address, bytes) == nullptr) {
+            ++stats_.failedRangeChecks;
+            return false;
+        }
+    }
+
+    std::memcpy(destination, address, bytes);
+    return true;
+}
+
+bool MemoryManagerAPI::WriteBytes(
+    void* address,
+    const void* source,
+    const std::size_t bytes) noexcept {
+    if (address == nullptr || source == nullptr || bytes == 0) {
+        return false;
+    }
+
+    {
+        std::scoped_lock lock(mutex_);
+        if (FindContainingLocked(address, bytes) == nullptr) {
+            ++stats_.failedRangeChecks;
+            return false;
+        }
+    }
+
+    std::memcpy(address, source, bytes);
+    return true;
+}
+
+std::vector<MemoryManagerAPI::AllocationInfo> MemoryManagerAPI::Snapshot() const {
+    std::scoped_lock lock(mutex_);
+
+    std::vector<AllocationInfo> result;
+    result.reserve(allocations_.size());
+
+    for (const auto& [address, record] : allocations_) {
+        result.push_back(AllocationInfo{
+            .id = record.id,
+            .address = record.address,
+            .size = record.size,
+            .alignment = record.alignment,
+            .tag = record.tag
+        });
+    }
+
+    std::ranges::sort(result, {}, &AllocationInfo::id);
+    return result;
+}
+
+MemoryManagerAPI::Statistics MemoryManagerAPI::Stats() const noexcept {
+    std::scoped_lock lock(mutex_);
+    return stats_;
+}
+
+const MemoryManagerAPI::AllocationRecord* MemoryManagerAPI::FindContainingLocked(
+    const void* address,
+    const std::size_t bytes) const noexcept {
+    const auto requestedStart = reinterpret_cast<std::uintptr_t>(address);
+    if (bytes > static_cast<std::size_t>(UINTPTR_MAX - requestedStart)) {
+        return nullptr;
+    }
+    const auto requestedEnd = requestedStart + bytes;
+
+    for (const auto& [baseAddress, record] : allocations_) {
+        const auto start = reinterpret_cast<std::uintptr_t>(baseAddress);
+        if (record.size > static_cast<std::size_t>(UINTPTR_MAX - start)) {
+            continue;
+        }
+        const auto end = start + record.size;
+        if (requestedStart >= start && requestedEnd <= end) {
+            return &record;
+        }
+    }
+
+    return nullptr;
+}
+
+void MemoryManagerAPI::LogInfo(const std::string_view message) const {
+    if (logger_ != nullptr) {
+        logger_->Info(message);
+    }
+}
+
+void MemoryManagerAPI::LogWarning(const std::string_view message) const {
+    if (logger_ != nullptr) {
+        logger_->Warning(message);
+    }
+}
+
+} // namespace smf::core
