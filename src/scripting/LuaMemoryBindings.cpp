@@ -3,6 +3,8 @@
 #include "core/MemoryManagerAPI.hpp"
 #include "core/SignatureManager.hpp"
 
+#include <Windows.h>
+
 #include <cstdint>
 #include <string>
 
@@ -14,15 +16,21 @@ sol::object ReadRemote(
     sol::this_state state,
     core::MemoryManagerAPI& memory,
     const std::uintptr_t address) {
+    const HANDLE processHandle = memory.ProcessHandle();
+    if (processHandle == nullptr || address == 0) {
+        return sol::make_object(state, sol::nil);
+    }
+
     T value{};
-    std::size_t bytesRead = 0;
-    if (address == 0 ||
-        !memory.ReadRemoteBytes(
-            address,
-            &value,
-            sizeof(value),
-            &bytesRead) ||
-        bytesRead != sizeof(value)) {
+    SIZE_T bytesRead = 0;
+    const BOOL succeeded = ReadProcessMemory(
+        processHandle,
+        reinterpret_cast<LPCVOID>(address),
+        &value,
+        sizeof(value),
+        &bytesRead);
+
+    if (succeeded == FALSE || bytesRead != sizeof(value)) {
         return sol::make_object(state, sol::nil);
     }
 
