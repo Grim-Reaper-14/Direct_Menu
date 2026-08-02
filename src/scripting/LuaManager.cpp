@@ -11,10 +11,11 @@ namespace smf::scripting {
 
 LuaManager::LuaManager(logging::LoggerApi& logger)
     : logger_(logger),
-      events_(logger_),
-      timers_(logger_),
-      ui_(logger_),
+      events_(logger_, [this](const std::string_view owner) { SetActiveScript(owner); }),
+      timers_(logger_, [this](const std::string_view owner) { SetActiveScript(owner); }),
+      ui_(logger_, [this](const std::string_view owner) { SetActiveScript(owner); }),
       modules_(*this),
+      fileSystemSandbox_(logger_),
       bindings_(
           logger_,
           luaState_,
@@ -23,8 +24,12 @@ LuaManager::LuaManager(logging::LoggerApi& logger)
           timers_,
           ui_,
           modules_,
+          fileSystemSandbox_,
           [this] { return ActiveScriptName(); },
           [this] { Refresh(); },
+          [this](const std::string_view owner, const std::string_view permission) {
+              return scripts_.HasPermission(owner, permission);
+          },
           [this](
               const std::string_view owner,
               std::string author,
@@ -51,6 +56,12 @@ LuaManager::~LuaManager() { Shutdown(); }
 
 void LuaManager::Initialize(std::filesystem::path scriptsDirectory) {
     if (initialized_) return;
+
+    const std::filesystem::path sandboxRoot = scriptsDirectory / ".sandbox";
+    if (!fileSystemSandbox_.Initialize(sandboxRoot)) {
+        logger_.Warning("Lua filesystem sandbox could not be initialized; filesystem API calls will fail closed.");
+    }
+
     OpenLibraries();
     scripts_.Initialize(std::move(scriptsDirectory));
     bindings_.RegisterCoreBindings();
@@ -59,7 +70,7 @@ void LuaManager::Initialize(std::filesystem::path scriptsDirectory) {
         if (script.enabled && script.autoLoad) scripts_.Load(script.name);
     }
     InstallFrameHook();
-    logger_.Info("Lua 5.4 runtime and sol2 API v2 binding layer initialized.");
+    logger_.Info("Lua 5.4 runtime and sol2 API v2.1 binding layer initialized.");
 }
 
 void LuaManager::OpenLibraries() {
@@ -135,7 +146,7 @@ bool LuaManager::RuntimeReady() const noexcept { return initialized_ && bindings
 std::string LuaManager::StatusText() const {
     if (!initialized_) return "Lua subsystem is not initialized.";
     if (!bindings_.Ready()) return "Lua 5.4 runtime is initialized; waiting for the native feature registry binding.";
-    return "Lua API v2 ready: Lua 5.4 + sol2 with manifests, script ownership, hot reload, modules, commands, events, timers, and retained ImGui widgets.";
+    return "Lua API v2.1 ready: Lua 5.4 + sol2 with permission-gated per-script filesystem sandboxes, manifests, hot reload, modules, commands, events, timers, and retained ImGui widgets.";
 }
 
 std::string LuaManager::ActiveScriptName() const { return activeScriptName_.empty() ? "__native__" : activeScriptName_; }
@@ -160,6 +171,7 @@ LuaBindingLibrary& LuaManager::Bindings() noexcept { return bindings_; }
 LuaEvents& LuaManager::Events() noexcept { return events_; }
 LuaTimerManager& LuaManager::Timers() noexcept { return timers_; }
 LuaUI& LuaManager::UI() noexcept { return ui_; }
+LuaFileSystemSandbox& LuaManager::FileSystemSandbox() noexcept { return fileSystemSandbox_; }
 sol::state& LuaManager::State() noexcept { return luaState_; }
 
 } // namespace smf::scripting
