@@ -2,7 +2,10 @@
 
 #include "core/Logger.hpp"
 
+#include <TlHelp32.h>
+
 #include <algorithm>
+#include <cwchar>
 #include <format>
 
 namespace smf::core {
@@ -31,6 +34,60 @@ bool MemoryManagerAPI::AttachToWindow(
         return false;
     }
 
+    return AttachToProcess(processId, gameWindow, desiredAccess);
+}
+
+bool MemoryManagerAPI::AttachToProcessId(
+    const DWORD processId,
+    const DWORD desiredAccess) {
+    if (processId == 0) {
+        LogWarning("Process attachment rejected because the PID is zero.");
+        return false;
+    }
+
+    return AttachToProcess(
+        processId,
+        FindTopLevelWindow(processId),
+        desiredAccess);
+}
+
+bool MemoryManagerAPI::AttachToProcessName(
+    const std::wstring_view executableName,
+    const DWORD desiredAccess) {
+    if (executableName.empty()) {
+        return false;
+    }
+
+    const std::wstring requestedName{executableName};
+    const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    DWORD matchedProcessId = 0;
+    PROCESSENTRY32W entry{};
+    entry.dwSize = sizeof(entry);
+    if (Process32FirstW(snapshot, &entry) != FALSE) {
+        do {
+            if (_wcsicmp(entry.szExeFile, requestedName.c_str()) == 0) {
+                matchedProcessId = entry.th32ProcessID;
+                break;
+            }
+        } while (Process32NextW(snapshot, &entry) != FALSE);
+    }
+    CloseHandle(snapshot);
+
+    if (matchedProcessId == 0) {
+        return false;
+    }
+
+    return AttachToProcessId(matchedProcessId, desiredAccess);
+}
+
+bool MemoryManagerAPI::AttachToProcess(
+    const DWORD processId,
+    const HWND gameWindow,
+    const DWORD desiredAccess) {
     HANDLE processHandle = OpenProcess(desiredAccess, FALSE, processId);
     if (processHandle == nullptr) {
         LogWarning(std::format(
@@ -79,6 +136,27 @@ bool MemoryManagerAPI::AttachToWindowTitle(
     return AttachToWindow(gameWindow, desiredAccess);
 }
 
+bool MemoryManagerAPI::RefreshGameWindow() noexcept {
+    DWORD processId = 0;
+    {
+        std::scoped_lock lock(mutex_);
+        processId = processId_;
+    }
+    if (processId == 0) {
+        return false;
+    }
+
+    const HWND gameWindow = FindTopLevelWindow(processId);
+    {
+        std::scoped_lock lock(mutex_);
+        if (processId_ != processId) {
+            return false;
+        }
+        gameWindow_ = gameWindow;
+    }
+    return gameWindow != nullptr;
+}
+
 void MemoryManagerAPI::DetachProcess() noexcept {
     HANDLE processHandle = nullptr;
     DWORD processId = 0;
@@ -106,8 +184,12 @@ bool MemoryManagerAPI::IsProcessAttached() const noexcept {
 
     DWORD exitCode = 0;
     return GetExitCodeProcess(processHandle_, &exitCode) != FALSE &&
-           exitCode == STILL_ACTIVE &&
-           (gameWindow_ == nullptr || IsWindow(gameWindow_));
+           exitCode == STILL_ACTIVE;
+}
+
+bool MemoryManagerAPI::HasGameWindow() const noexcept {
+    std::scoped_lock lock(mutex_);
+    return gameWindow_ != nullptr && IsWindow(gameWindow_);
 }
 
 DWORD MemoryManagerAPI::ProcessId() const noexcept {
@@ -123,6 +205,36 @@ HANDLE MemoryManagerAPI::ProcessHandle() const noexcept {
 HWND MemoryManagerAPI::GameWindow() const noexcept {
     std::scoped_lock lock(mutex_);
     return gameWindow_;
+}
+
+HWND MemoryManagerAPI::FindTopLevelWindow(const DWORD processId) noexcept {
+    struct SearchState {
+        DWORD processId{};
+        HWND firstWindow{};
+        HWND visibleWindow{};
+    } state{.processId = processId};
+
+    EnumWindows(
+        [](const HWND window, const LPARAM parameter) -> BOOL {
+            auto* search = reinterpret_cast<SearchState*>(parameter);
+            DWORD windowProcessId = 0;
+            GetWindowThreadProcessId(window, &windowProcessId);
+            if (windowProcessId != search->processId) {
+                return TRUE;
+            }
+
+            if (search->firstWindow == nullptr) {
+                search->firstWindow = window;
+            }
+            if (IsWindowVisible(window) && GetWindow(window, GW_OWNER) == nullptr) {
+                search->visibleWindow = window;
+                return FALSE;
+            }
+            return TRUE;
+        },
+        reinterpret_cast<LPARAM>(&state));
+
+    return state.visibleWindow != nullptr ? state.visibleWindow : state.firstWindow;
 }
 
 void* MemoryManagerAPI::Allocate(

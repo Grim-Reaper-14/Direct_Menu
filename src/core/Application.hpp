@@ -3,6 +3,8 @@
 #include "backend/D3D12Backend.hpp"
 #include "config/ConfigManager.hpp"
 #include "core/AppSettings.hpp"
+#include "core/Logger.hpp"
+#include "core/MemoryManagerAPI.hpp"
 #include "core/TaskQueue.hpp"
 #include "features/FeatureRegistry.hpp"
 #include "filesystem/FileSystemManager.hpp"
@@ -70,6 +72,8 @@ private:
 
     filesystem::FileSystemManager fileSystem_;
     logging::LoggerApi logger_;
+    Logger memoryLogger_;
+    MemoryManagerAPI memory_;
     TaskQueue tasks_;
     features::FeatureRegistry features_;
     AppSettings settings_;

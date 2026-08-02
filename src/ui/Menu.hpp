@@ -9,6 +9,10 @@
 #include <string_view>
 #include <vector>
 
+namespace smf::core {
+class MemoryManagerAPI;
+}
+
 namespace smf::backend {
 class D3D12Backend;
 }
@@ -72,6 +76,7 @@ public:
         features::FeatureRegistry& features,
         const filesystem::FileSystemManager& fileSystem,
         scripting::LuaManager& lua,
+        core::MemoryManagerAPI& memory,
         FontManager& fonts,
         ImageLoader& brandBackground,
         ImageLoader& brandHeader,
@@ -129,6 +134,7 @@ private:
     features::FeatureRegistry& features_;
     const filesystem::FileSystemManager& fileSystem_;
     scripting::LuaManager& lua_;
+    core::MemoryManagerAPI& memory_;
     FontManager& fonts_;
     ImageLoader& brandBackground_;
     ImageLoader& brandHeader_;

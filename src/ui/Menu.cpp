@@ -2,6 +2,7 @@
 
 #include "backend/D3D12Backend.hpp"
 #include "config/ConfigManager.hpp"
+#include "core/MemoryManagerAPI.hpp"
 #include "features/FeatureRegistry.hpp"
 #include "filesystem/FileSystemManager.hpp"
 #include "scripting/LuaManager.hpp"
@@ -83,6 +84,7 @@ Menu::Menu(
     features::FeatureRegistry& features,
     const filesystem::FileSystemManager& fileSystem,
     scripting::LuaManager& lua,
+    core::MemoryManagerAPI& memory,
     FontManager& fonts,
     ImageLoader& brandBackground,
     ImageLoader& brandHeader,
@@ -98,6 +100,7 @@ Menu::Menu(
       features_(features),
       fileSystem_(fileSystem),
       lua_(lua),
+      memory_(memory),
       fonts_(fonts),
       brandBackground_(brandBackground),
       brandHeader_(brandHeader),
@@ -954,6 +957,48 @@ void Menu::RenderMisc() {
 }
 
 void Menu::RenderSettings() {
+    const bool processAttached = memory_.IsProcessAttached();
+    const bool windowAttached = memory_.HasGameWindow();
+    ImGui::TextColored(
+        processAttached ? ImVec4{0.38F, 0.92F, 0.52F, 1.0F}
+                        : ImVec4{0.94F, 0.66F, 0.28F, 1.0F},
+        "%s",
+        processAttached ? "Game process attached" : "Searching for GTA5 process...");
+    if (processAttached) {
+        ImGui::Text("PID: %lu", static_cast<unsigned long>(memory_.ProcessId()));
+        ImGui::Text("Process handle: %p", memory_.ProcessHandle());
+        if (windowAttached) {
+            ImGui::Text("Game window: %p", memory_.GameWindow());
+        } else {
+            ImGui::TextDisabled(
+                "Process found; waiting for its top-level game window.");
+        }
+    }
+
+    if (ImGui::Button("Reconnect to GTA5", {-1.0F, 36.0F})) {
+        memory_.DetachProcess();
+        const bool attached =
+            memory_.AttachToProcessName(L"GTA5_Enhanced.exe") ||
+            memory_.AttachToProcessName(L"GTA5.exe");
+        notifications_.Push(
+            attached ? "Attached to the GTA5 process."
+                     : "GTA5 is not running or access was denied.",
+            attached ? NotificationKind::Success : NotificationKind::Warning);
+    }
+    if (processAttached && !windowAttached) {
+        if (ImGui::Button("Refresh Game Window", {-1.0F, 36.0F})) {
+            const bool found = memory_.RefreshGameWindow();
+            notifications_.Push(
+                found ? "The GTA5 game window is attached."
+                      : "The process is attached, but no top-level window exists yet.",
+                found ? NotificationKind::Success : NotificationKind::Warning);
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
     SubmenuButton("Lua", MenuPage::Lua);
     SubmenuButton("Style Editor", MenuPage::StyleEditor);
     SubmenuButton("Themes", MenuPage::Themes);

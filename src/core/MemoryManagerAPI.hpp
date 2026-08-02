@@ -62,9 +62,17 @@ public:
     bool AttachToWindowTitle(
         std::wstring_view windowTitle,
         DWORD desiredAccess = QueryProcessAccess);
+    bool AttachToProcessId(
+        DWORD processId,
+        DWORD desiredAccess = QueryProcessAccess);
+    bool AttachToProcessName(
+        std::wstring_view executableName,
+        DWORD desiredAccess = QueryProcessAccess);
+    bool RefreshGameWindow() noexcept;
     void DetachProcess() noexcept;
 
     [[nodiscard]] bool IsProcessAttached() const noexcept;
+    [[nodiscard]] bool HasGameWindow() const noexcept;
     [[nodiscard]] DWORD ProcessId() const noexcept;
 
     // Borrowed handles remain valid until the next attach, detach, or destruction.
@@ -131,6 +139,12 @@ private:
     [[nodiscard]] const AllocationRecord* FindContainingLocked(
         const void* address,
         std::size_t bytes) const noexcept;
+
+    bool AttachToProcess(
+        DWORD processId,
+        HWND gameWindow,
+        DWORD desiredAccess);
+    [[nodiscard]] static HWND FindTopLevelWindow(DWORD processId) noexcept;
 
     void LogInfo(std::string_view message) const;
     void LogWarning(std::string_view message) const;

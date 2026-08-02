@@ -35,7 +35,9 @@ constexpr int ClientHeight = 720;
 } // namespace
 
 Application::Application()
-    : configs_(fileSystem_, logger_),
+    : memoryLogger_(logger_, "MemoryManager"),
+      memory_(&memoryLogger_),
+      configs_(fileSystem_, logger_),
       lua_(logger_),
       fonts_(logger_),
       brandBackground_(logger_),
@@ -114,6 +116,7 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
         features_,
         fileSystem_,
         lua_,
+        memory_,
         fonts_,
         brandBackground_,
         brandHeader_,
@@ -138,6 +141,7 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
     UpdateWindow(window_);
 
     bool done = false;
+    auto nextGameAttachmentCheck = std::chrono::steady_clock::now();
     while (!done) {
         MSG message{};
         while (PeekMessageW(&message, nullptr, 0U, 0U, PM_REMOVE)) {
@@ -153,8 +157,25 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
             break;
         }
 
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= nextGameAttachmentCheck) {
+            if (!memory_.IsProcessAttached()) {
+                if (!memory_.AttachToProcessName(L"GTA5_Enhanced.exe")) {
+                    memory_.AttachToProcessName(L"GTA5.exe");
+                }
+            } else if (!memory_.HasGameWindow()) {
+                memory_.RefreshGameWindow();
+            }
+            nextGameAttachmentCheck = now + std::chrono::seconds{2};
+        }
+
         if (!menuVisible_ || minimized_) {
-            WaitMessage();
+            MsgWaitForMultipleObjects(
+                0,
+                nullptr,
+                FALSE,
+                2000,
+                QS_ALLINPUT);
             continue;
         }
 
@@ -595,6 +616,7 @@ void Application::Cleanup() {
 
     tasks_.Shutdown();
     lua_.Shutdown();
+    memory_.DetachProcess();
     menu_.reset();
     if (images_.HasImage()) {
         images_.Clear(backend_);
