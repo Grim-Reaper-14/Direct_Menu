@@ -72,16 +72,39 @@ bool LuaFileSystemSandbox::WriteText(
     const std::string_view relativePath,
     const std::string_view contents,
     const std::size_t maximumBytes) {
-    if (contents.size() > maximumBytes) return false;
+    if (contents.size() > maximumBytes) {
+        logger_.Warning("Lua sandbox write exceeded the configured size limit.");
+        return false;
+    }
     const auto resolved = Resolve(owner, relativePath, true);
-    if (!resolved.has_value()) return false;
+    if (!resolved.has_value()) {
+        logger_.Warning(
+            "Lua sandbox write path was rejected for '" +
+            std::string{owner} + "': " + std::string{relativePath});
+        return false;
+    }
     std::error_code error;
     std::filesystem::create_directories(resolved->parent_path(), error);
-    if (error) return false;
+    if (error) {
+        logger_.Warning(
+            "Lua sandbox write directory could not be created: " +
+            error.message());
+        return false;
+    }
     const auto checked = Resolve(owner, relativePath, false);
-    if (!checked.has_value()) return false;
+    if (!checked.has_value()) {
+        logger_.Warning(
+            "Lua sandbox write path failed its post-create containment check for '" +
+            std::string{owner} + "': " + std::string{relativePath});
+        return false;
+    }
     std::ofstream output(*checked, std::ios::binary | std::ios::trunc);
-    if (!output) return false;
+    if (!output) {
+        logger_.Warning(
+            "Lua sandbox file could not be opened for writing: " +
+            checked->string());
+        return false;
+    }
     output.write(contents.data(), static_cast<std::streamsize>(contents.size()));
     return output.good();
 }
@@ -170,11 +193,65 @@ std::optional<std::filesystem::path> LuaFileSystemSandbox::Resolve(
     }
 
     const std::filesystem::path canonicalOwner = std::filesystem::weakly_canonical(ownerRoot, error);
-    if (error) return std::nullopt;
+    if (error) {
+        logger_.Warning(
+            "Lua sandbox owner root could not be canonicalized: " +
+            error.message());
+        return std::nullopt;
+    }
 
-    const std::filesystem::path candidate = (ownerRoot / requested).lexically_normal();
-    const std::filesystem::path canonicalCandidate = std::filesystem::weakly_canonical(candidate, error);
-    if (error || !IsContained(canonicalOwner, canonicalCandidate)) return std::nullopt;
+    const std::filesystem::path candidate =
+        (ownerRoot / requested).lexically_normal();
+
+    // MSVC's weakly_canonical can report access denied for a non-existent
+    // final component. Resolve the longest existing prefix instead, then
+    // append only the already-validated relative tail. Existing junctions
+    // and symlinks are still canonicalized before the containment check.
+    std::filesystem::path existingPrefix = candidate;
+    while (existingPrefix != ownerRoot &&
+           !std::filesystem::exists(existingPrefix, error)) {
+        if (error) {
+            logger_.Warning(
+                "Lua sandbox path prefix could not be inspected: " +
+                error.message());
+            return std::nullopt;
+        }
+        existingPrefix = existingPrefix.parent_path();
+    }
+    if (error) {
+        logger_.Warning(
+            "Lua sandbox path prefix could not be inspected: " +
+            error.message());
+        return std::nullopt;
+    }
+
+    const std::filesystem::path canonicalPrefix =
+        std::filesystem::weakly_canonical(existingPrefix, error);
+    if (error) {
+        logger_.Warning(
+            "Lua sandbox path prefix could not be canonicalized: " +
+            error.message());
+        return std::nullopt;
+    }
+    if (!IsContained(canonicalOwner, canonicalPrefix)) {
+        logger_.Warning(
+            "Lua sandbox path prefix escaped its owner root: " +
+            canonicalPrefix.string());
+        return std::nullopt;
+    }
+
+    const std::filesystem::path relativeTail =
+        candidate.lexically_relative(existingPrefix);
+    const std::filesystem::path canonicalCandidate =
+        (relativeTail.empty() || relativeTail == ".")
+            ? canonicalPrefix
+            : (canonicalPrefix / relativeTail).lexically_normal();
+    if (!IsContained(canonicalOwner, canonicalCandidate)) {
+        logger_.Warning(
+            "Lua sandbox candidate escaped its owner root: " +
+            canonicalCandidate.string());
+        return std::nullopt;
+    }
 
     return canonicalCandidate;
 }

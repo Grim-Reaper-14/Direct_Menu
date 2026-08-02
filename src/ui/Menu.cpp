@@ -1479,7 +1479,7 @@ void Menu::RenderConfigurations() {
 
 void Menu::ApplyLoadedSettings() {
     if (!themes_.Apply(settings_.theme)) {
-        settings_.theme = "Midnight";
+        settings_.theme = "Reaper";
         themes_.Apply(settings_.theme);
     }
     settings_.imguiStyle.Apply(ImGui::GetStyle());

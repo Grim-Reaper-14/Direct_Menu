@@ -225,4 +225,46 @@ if(BUILD_TESTING)
     target_compile_features(ImGuiStyleSettingsSmoke PRIVATE cxx_std_20)
     target_link_libraries(ImGuiStyleSettingsSmoke PRIVATE imgui)
     add_test(NAME ImGuiStyleSettingsSmoke COMMAND ImGuiStyleSettingsSmoke)
+
+    add_executable(LuaRuntimeSmoke
+        tests/LuaRuntimeSmoke.cpp
+        src/features/FeatureRegistry.cpp
+        src/logging/Logger.cpp
+        src/scripting/LuaBindingLibrary.cpp
+        src/scripting/LuaCommands.cpp
+        src/scripting/LuaEvents.cpp
+        src/scripting/LuaFileSystemSandbox.cpp
+        src/scripting/LuaImGuiBindings.cpp
+        src/scripting/LuaManager.cpp
+        src/scripting/LuaModule.cpp
+        src/scripting/LuaModuleManager.cpp
+        src/scripting/LuaScriptsManager.cpp
+        src/scripting/LuaTimerManager.cpp
+        src/scripting/LuaUI.cpp
+    )
+    target_include_directories(LuaRuntimeSmoke PRIVATE src)
+    target_compile_features(LuaRuntimeSmoke PRIVATE cxx_std_20)
+    target_compile_definitions(LuaRuntimeSmoke PRIVATE
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        WINVER=0x0A00
+        _WIN32_WINNT=0x0A00
+        UNICODE
+        _UNICODE
+    )
+    if(MSVC)
+        target_compile_options(LuaRuntimeSmoke PRIVATE
+            /W4
+            /permissive-
+            /EHsc
+            /utf-8
+            /Zc:__cplusplus
+        )
+    endif()
+    target_link_libraries(LuaRuntimeSmoke PRIVATE
+        imgui
+        lua_static
+        sol2::sol2
+    )
+    add_test(NAME LuaRuntimeSmoke COMMAND LuaRuntimeSmoke)
 endif()
