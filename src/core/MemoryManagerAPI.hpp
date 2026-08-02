@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Windows.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -21,6 +23,13 @@ class Logger;
 class MemoryManagerAPI final {
 public:
     using AllocationId = std::uint64_t;
+
+    static constexpr DWORD QueryProcessAccess =
+        PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE;
+    static constexpr DWORD ReadProcessAccess =
+        QueryProcessAccess | PROCESS_VM_READ;
+    static constexpr DWORD ReadWriteProcessAccess =
+        ReadProcessAccess | PROCESS_VM_WRITE | PROCESS_VM_OPERATION;
 
     struct AllocationInfo {
         AllocationId id{};
@@ -46,6 +55,21 @@ public:
 
     MemoryManagerAPI(const MemoryManagerAPI&) = delete;
     MemoryManagerAPI& operator=(const MemoryManagerAPI&) = delete;
+
+    bool AttachToWindow(
+        HWND gameWindow,
+        DWORD desiredAccess = QueryProcessAccess);
+    bool AttachToWindowTitle(
+        std::wstring_view windowTitle,
+        DWORD desiredAccess = QueryProcessAccess);
+    void DetachProcess() noexcept;
+
+    [[nodiscard]] bool IsProcessAttached() const noexcept;
+    [[nodiscard]] DWORD ProcessId() const noexcept;
+
+    // Borrowed handles remain valid until the next attach, detach, or destruction.
+    [[nodiscard]] HANDLE ProcessHandle() const noexcept;
+    [[nodiscard]] HWND GameWindow() const noexcept;
 
     [[nodiscard]] void* Allocate(
         std::size_t size,
@@ -116,6 +140,10 @@ private:
     mutable Statistics stats_{};
     AllocationId nextId_{1};
     Logger* logger_{nullptr};
+    HANDLE processHandle_{nullptr};
+    HWND gameWindow_{nullptr};
+    DWORD processId_{0};
+    DWORD processAccess_{0};
 };
 
 } // namespace smf::core

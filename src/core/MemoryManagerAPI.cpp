@@ -12,7 +12,117 @@ MemoryManagerAPI::MemoryManagerAPI(Logger* logger)
 }
 
 MemoryManagerAPI::~MemoryManagerAPI() {
+    DetachProcess();
     ReleaseAll();
+}
+
+bool MemoryManagerAPI::AttachToWindow(
+    const HWND gameWindow,
+    const DWORD desiredAccess) {
+    if (gameWindow == nullptr || !IsWindow(gameWindow)) {
+        LogWarning("Process attachment rejected because the game window is invalid.");
+        return false;
+    }
+
+    DWORD processId = 0;
+    GetWindowThreadProcessId(gameWindow, &processId);
+    if (processId == 0) {
+        LogWarning("Process attachment failed because the window has no process ID.");
+        return false;
+    }
+
+    HANDLE processHandle = OpenProcess(desiredAccess, FALSE, processId);
+    if (processHandle == nullptr) {
+        LogWarning(std::format(
+            "OpenProcess failed for PID {} with Windows error {}.",
+            processId,
+            GetLastError()));
+        return false;
+    }
+
+    HANDLE previousHandle = nullptr;
+    {
+        std::scoped_lock lock(mutex_);
+        previousHandle = processHandle_;
+        processHandle_ = processHandle;
+        gameWindow_ = gameWindow;
+        processId_ = processId;
+        processAccess_ = desiredAccess;
+    }
+
+    if (previousHandle != nullptr) {
+        CloseHandle(previousHandle);
+    }
+
+    LogInfo(std::format(
+        "Attached to window process PID {} with access mask 0x{:08X}.",
+        processId,
+        desiredAccess));
+    return true;
+}
+
+bool MemoryManagerAPI::AttachToWindowTitle(
+    const std::wstring_view windowTitle,
+    const DWORD desiredAccess) {
+    if (windowTitle.empty()) {
+        LogWarning("Process attachment rejected because the window title is empty.");
+        return false;
+    }
+
+    const std::wstring title{windowTitle};
+    const HWND gameWindow = FindWindowW(nullptr, title.c_str());
+    if (gameWindow == nullptr) {
+        LogWarning("No top-level window matched the requested game title.");
+        return false;
+    }
+
+    return AttachToWindow(gameWindow, desiredAccess);
+}
+
+void MemoryManagerAPI::DetachProcess() noexcept {
+    HANDLE processHandle = nullptr;
+    DWORD processId = 0;
+    {
+        std::scoped_lock lock(mutex_);
+        processHandle = processHandle_;
+        processId = processId_;
+        processHandle_ = nullptr;
+        gameWindow_ = nullptr;
+        processId_ = 0;
+        processAccess_ = 0;
+    }
+
+    if (processHandle != nullptr) {
+        CloseHandle(processHandle);
+        LogInfo(std::format("Detached from process PID {}.", processId));
+    }
+}
+
+bool MemoryManagerAPI::IsProcessAttached() const noexcept {
+    std::scoped_lock lock(mutex_);
+    if (processHandle_ == nullptr || processId_ == 0) {
+        return false;
+    }
+
+    DWORD exitCode = 0;
+    return GetExitCodeProcess(processHandle_, &exitCode) != FALSE &&
+           exitCode == STILL_ACTIVE &&
+           (gameWindow_ == nullptr || IsWindow(gameWindow_));
+}
+
+DWORD MemoryManagerAPI::ProcessId() const noexcept {
+    std::scoped_lock lock(mutex_);
+    return processId_;
+}
+
+HANDLE MemoryManagerAPI::ProcessHandle() const noexcept {
+    std::scoped_lock lock(mutex_);
+    return processHandle_;
+}
+
+HWND MemoryManagerAPI::GameWindow() const noexcept {
+    std::scoped_lock lock(mutex_);
+    return gameWindow_;
 }
 
 void* MemoryManagerAPI::Allocate(
