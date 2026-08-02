@@ -362,6 +362,35 @@ std::size_t MemoryManagerAPI::SizeOf(const void* address) const noexcept {
     return record == nullptr ? 0 : record->size;
 }
 
+const void* MemoryManagerAPI::ResolveOffset(
+    const void* baseAddress,
+    const std::ptrdiff_t offset,
+    const std::size_t bytes) const noexcept {
+    if (baseAddress == nullptr || bytes == 0) {
+        return nullptr;
+    }
+
+    const auto base = reinterpret_cast<std::uintptr_t>(baseAddress);
+    std::uintptr_t resolved = 0;
+    if (offset >= 0) {
+        const auto positiveOffset = static_cast<std::uintptr_t>(offset);
+        if (positiveOffset > UINTPTR_MAX - base) {
+            return nullptr;
+        }
+        resolved = base + positiveOffset;
+    } else {
+        const auto magnitude =
+            static_cast<std::uintptr_t>(-(offset + 1)) + 1;
+        if (magnitude > base) {
+            return nullptr;
+        }
+        resolved = base - magnitude;
+    }
+
+    const void* address = reinterpret_cast<const void*>(resolved);
+    return OwnsRange(address, bytes) ? address : nullptr;
+}
+
 bool MemoryManagerAPI::ReadBytes(
     const void* address,
     void* destination,

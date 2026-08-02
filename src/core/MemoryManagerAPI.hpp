@@ -98,6 +98,19 @@ public:
     [[nodiscard]] bool OwnsRange(const void* address, std::size_t bytes) const noexcept;
     [[nodiscard]] std::size_t SizeOf(const void* address) const noexcept;
 
+    [[nodiscard]] const void* ResolveOffset(
+        const void* baseAddress,
+        std::ptrdiff_t offset,
+        std::size_t bytes = 1) const noexcept;
+
+    [[nodiscard]] void* ResolveOffset(
+        void* baseAddress,
+        std::ptrdiff_t offset,
+        std::size_t bytes = 1) noexcept {
+        return const_cast<void*>(
+            std::as_const(*this).ResolveOffset(baseAddress, offset, bytes));
+    }
+
     bool ReadBytes(
         const void* address,
         void* destination,
@@ -122,6 +135,25 @@ public:
     bool Write(void* address, const T& value) noexcept {
         static_assert(std::is_trivially_copyable_v<T>);
         return WriteBytes(address, &value, sizeof(T));
+    }
+
+    template <typename T>
+    [[nodiscard]] std::optional<T> ReadOffset(
+        const void* baseAddress,
+        const std::ptrdiff_t offset) const noexcept {
+        static_assert(std::is_trivially_copyable_v<T>);
+        const void* address = ResolveOffset(baseAddress, offset, sizeof(T));
+        return address == nullptr ? std::nullopt : Read<T>(address);
+    }
+
+    template <typename T>
+    bool WriteOffset(
+        void* baseAddress,
+        const std::ptrdiff_t offset,
+        const T& value) noexcept {
+        static_assert(std::is_trivially_copyable_v<T>);
+        void* address = ResolveOffset(baseAddress, offset, sizeof(T));
+        return address != nullptr && Write<T>(address, value);
     }
 
     [[nodiscard]] std::vector<AllocationInfo> Snapshot() const;
