@@ -102,6 +102,7 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
     RegisterBuiltInFeatures();
     lua_.BindFeatureRegistry(features_);
     lua_.Initialize(fileSystem_.LuaScripts());
+    lua_.BindMemoryAPI(memory_, signatures_);
 
     ui::MenuCallbacks callbacks{};
     callbacks.toggleVisibility = [this] {

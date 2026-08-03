@@ -5,6 +5,7 @@
 #include "core/AppSettings.hpp"
 #include "core/Logger.hpp"
 #include "core/MemoryManagerAPI.hpp"
+#include "core/SignatureManager.hpp"
 #include "core/TaskQueue.hpp"
 #include "features/FeatureRegistry.hpp"
 #include "filesystem/FileSystemManager.hpp"
@@ -75,6 +76,7 @@ private:
     logging::LoggerApi logger_;
     Logger memoryLogger_;
     MemoryManagerAPI memory_;
+    SignatureManager signatures_{memory_};
     Logger gameProviderLogger_;
     providers::GameProvider gameProvider_;
     TaskQueue tasks_;

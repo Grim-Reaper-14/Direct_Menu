@@ -4,6 +4,7 @@
 #include "scripting/LuaCommands.hpp"
 #include "scripting/LuaEvents.hpp"
 #include "scripting/LuaFileSystemSandbox.hpp"
+#include "scripting/LuaMemoryBindings.hpp"
 #include "scripting/LuaModuleManager.hpp"
 #include "scripting/LuaScriptsManager.hpp"
 #include "scripting/LuaTimerManager.hpp"
@@ -15,6 +16,10 @@
 #include <string>
 #include <string_view>
 
+namespace smf::core {
+class MemoryManagerAPI;
+class SignatureManager;
+}
 namespace smf::features { class FeatureRegistry; }
 namespace smf::logging { class LoggerApi; }
 namespace smf::scripting {
@@ -40,6 +45,9 @@ public:
     [[nodiscard]] std::string ActiveScriptName() const;
 
     void BindFeatureRegistry(features::FeatureRegistry& registry);
+    void BindMemoryAPI(
+        core::MemoryManagerAPI& memory,
+        core::SignatureManager& signatures);
 
     [[nodiscard]] LuaScriptsManager& ScriptsManager() noexcept;
     [[nodiscard]] LuaModuleManager& Modules() noexcept;
@@ -69,6 +77,7 @@ private:
     std::string activeScriptName_;
     bool drawingFrame_{false};
     bool initialized_{false};
+    bool memoryApiBound_{false};
 };
 
 } // namespace smf::scripting

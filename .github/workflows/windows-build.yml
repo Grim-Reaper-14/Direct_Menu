@@ -6,32 +6,54 @@ on:
     branches:
       - main
       - master
+      - "feature/**"
   pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-test:
+    name: ${{ matrix.configuration }}
     runs-on: windows-2022
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - Debug
+          - Release
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake --preset windows-msvc
+        run: cmake --preset windows-msvc -DBUILD_TESTING=ON
 
-      - name: Build release
-        run: cmake --build --preset windows-release
+      - name: Build
+        run: cmake --build build --config ${{ matrix.configuration }} --parallel
 
       - name: Run smoke tests
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: ctest --test-dir build -C ${{ matrix.configuration }} --output-on-failure
 
       - name: Package release
+        if: matrix.configuration == 'Release'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force package/assets | Out-Null
           New-Item -ItemType Directory -Force package/Source | Out-Null
           Copy-Item build/Release/Direct_Menu.exe package/Direct_Menu.exe
-          Copy-Item build/Release/assets/direct_menu_neon_background.jpg package/assets/direct_menu_neon_background.jpg
+          if (Test-Path build/Release/assets) {
+            Copy-Item build/Release/assets package/assets -Recurse -Force
+          }
           Copy-Item CMakeLists.txt package/Source/CMakeLists.txt
           Copy-Item CMakePresets.json package/Source/CMakePresets.json
           Copy-Item README.md package/Source/README.md
@@ -41,6 +63,7 @@ jobs:
           Copy-Item assets package/Source/assets -Recurse
 
       - name: Upload executable
+        if: matrix.configuration == 'Release'
         uses: actions/upload-artifact@v4
         with:
           name: Direct_Menu-Windows-x64
