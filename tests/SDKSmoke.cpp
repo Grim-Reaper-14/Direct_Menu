@@ -49,6 +49,23 @@ int main() {
     static_assert(!std::is_copy_constructible_v<smf::sdk::SDK>);
     static_assert(!std::is_move_constructible_v<smf::sdk::SDK>);
 
+    const smf::sdk::SDKDiagnostics initialDiagnostics = services.Diagnostics();
+    if (initialDiagnostics.processAttached ||
+        initialDiagnostics.signatureDefinitions != 0 ||
+        initialDiagnostics.nativeBackendAvailable ||
+        initialDiagnostics.nativeEnvironment !=
+            smf::natives::NativeInvoker::Environment::Unknown ||
+        initialDiagnostics.nativeInvocationAllowed ||
+        initialDiagnostics.registeredNatives != 0 ||
+        initialDiagnostics.pendingNativeTasks != 0 ||
+        initialDiagnostics.crossmapEntries != 0 ||
+        initialDiagnostics.nativeMetadataEntries != 0 ||
+        initialDiagnostics.hasLocalPlayer ||
+        initialDiagnostics.localPlayerHandle !=
+            smf::sdk::InvalidEntityHandle) {
+        return Fail("Initial SDK diagnostics failed.");
+    }
+
     const smf::sdk::Entity empty;
     if (empty.IsBound() || empty.HasValue() || empty ||
         empty.Handle() != smf::sdk::InvalidEntityHandle ||
@@ -100,6 +117,12 @@ int main() {
     if (!players.HasLocal() || players.LocalHandle() != 11 ||
         !local || local.Handle() != 11 || local.Services() != &services) {
         return Fail("PlayerManager local handle state failed.");
+    }
+
+    const smf::sdk::SDKDiagnostics localDiagnostics = services.Diagnostics();
+    if (!localDiagnostics.hasLocalPlayer ||
+        localDiagnostics.localPlayerHandle != 11) {
+        return Fail("SDK local-player diagnostics failed.");
     }
 
     players.ClearLocal();

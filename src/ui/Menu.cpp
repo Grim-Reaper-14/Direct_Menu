@@ -7,6 +7,7 @@
 #include "filesystem/FileSystemManager.hpp"
 #include "providers/GameProvider.hpp"
 #include "scripting/LuaManager.hpp"
+#include "sdk/SDK.hpp"
 #include "ui/FontManager.hpp"
 #include "ui/ImageLoader.hpp"
 #include "ui/NotificationCenter.hpp"
@@ -86,6 +87,7 @@ Menu::Menu(
     const filesystem::FileSystemManager& fileSystem,
     scripting::LuaManager& lua,
     core::MemoryManagerAPI& memory,
+    sdk::SDK& sdk,
     providers::GameProvider& gameProvider,
     FontManager& fonts,
     ImageLoader& brandBackground,
@@ -103,6 +105,7 @@ Menu::Menu(
       fileSystem_(fileSystem),
       lua_(lua),
       memory_(memory),
+      sdk_(sdk),
       gameProvider_(gameProvider),
       fonts_(fonts),
       brandBackground_(brandBackground),
@@ -309,6 +312,9 @@ void Menu::RenderMain() {
         case MenuPage::Lua:
             RenderLua();
             break;
+        case MenuPage::SdkExplorer:
+            RenderSdkExplorer();
+            break;
         case MenuPage::StyleEditor:
             RenderStyleEditor();
             break;
@@ -379,6 +385,8 @@ std::string_view Menu::PageTitle(const MenuPage page) {
         return "Settings";
     case MenuPage::Lua:
         return "Settings / Lua";
+    case MenuPage::SdkExplorer:
+        return "Settings / SDK Explorer";
     case MenuPage::StyleEditor:
         return "Settings / Style Editor";
     case MenuPage::Themes:
@@ -421,6 +429,8 @@ std::string_view Menu::PageDescription(const MenuPage page) {
         return "Manage Lua, themes, backgrounds, fonts, configurations, visibility, and application controls.";
     case MenuPage::Lua:
         return "Refresh and manage Lua scripts and review the current scripting runtime status.";
+    case MenuPage::SdkExplorer:
+        return "Inspect the read-only SDK container, invocation policy, managers, and native-runtime counters.";
     case MenuPage::StyleEditor:
         return "Inspect and edit the active Dear ImGui style, with controls to restore the selected Direct Menu theme.";
     case MenuPage::Themes:
@@ -1021,6 +1031,7 @@ void Menu::RenderSettings() {
     ImGui::Spacing();
 
     SubmenuButton("Lua", MenuPage::Lua);
+    SubmenuButton("SDK Explorer", MenuPage::SdkExplorer);
     SubmenuButton("Style Editor", MenuPage::StyleEditor);
     SubmenuButton("Themes", MenuPage::Themes);
     SubmenuButton("Image Loader", MenuPage::Images);
@@ -1047,6 +1058,70 @@ void Menu::RenderSettings() {
         callbacks_.requestExit();
     }
     ImGui::PopStyleColor(2);
+}
+
+void Menu::RenderSdkExplorer() {
+    const sdk::SDKDiagnostics diagnostics = sdk_.Diagnostics();
+
+    RenderInfoCard(
+        "This page is read-only. It reports SDK wiring and safety-policy "
+        "state without invoking natives or changing gameplay values.");
+
+    ImGui::SeparatorText("Runtime Policy");
+    ImGui::Text(
+        "Environment: %.*s",
+        static_cast<int>(diagnostics.EnvironmentName().size()),
+        diagnostics.EnvironmentName().data());
+    ImGui::Text(
+        "Native backend: %s",
+        diagnostics.nativeBackendAvailable ? "Available" : "Not configured");
+    ImGui::TextColored(
+        diagnostics.nativeInvocationAllowed
+            ? ImVec4{0.38F, 0.92F, 0.52F, 1.0F}
+            : ImVec4{0.94F, 0.66F, 0.28F, 1.0F},
+        "%s",
+        diagnostics.nativeInvocationAllowed
+            ? "Invocation allowed by current policy"
+            : "Invocation fail-closed");
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Container State");
+    ImGui::Text(
+        "Process attachment: %s",
+        diagnostics.processAttached ? "Attached" : "Detached");
+    ImGui::Text("Signature definitions: %zu", diagnostics.signatureDefinitions);
+    ImGui::Text("Registered native handlers: %zu", diagnostics.registeredNatives);
+    ImGui::Text("Native metadata entries: %zu", diagnostics.nativeMetadataEntries);
+    ImGui::Text("Crossmap entries: %zu", diagnostics.crossmapEntries);
+    ImGui::Text(
+        "Crossmap version: %s",
+        diagnostics.crossmapVersion.empty()
+            ? "Not set"
+            : diagnostics.crossmapVersion.c_str());
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Scheduler");
+    ImGui::Text("Pending tasks: %zu", diagnostics.pendingNativeTasks);
+    ImGui::Text(
+        "Frames: %llu",
+        static_cast<unsigned long long>(diagnostics.schedulerFrames));
+    ImGui::Text(
+        "Executed tasks: %llu",
+        static_cast<unsigned long long>(diagnostics.executedNativeTasks));
+    ImGui::Text(
+        "Failed tasks: %llu",
+        static_cast<unsigned long long>(diagnostics.failedNativeTasks));
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Managers");
+    if (diagnostics.hasLocalPlayer) {
+        ImGui::Text("Local player handle: %u", diagnostics.localPlayerHandle);
+    } else {
+        ImGui::TextDisabled("Local player handle is not set.");
+    }
+    ImGui::TextUnformatted("Player manager: Ready");
+    ImGui::TextUnformatted("Vehicle manager: Ready");
+    ImGui::TextUnformatted("Camera manager: Ready");
 }
 
 void Menu::RenderLua() {

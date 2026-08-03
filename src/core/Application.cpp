@@ -132,6 +132,7 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
         fileSystem_,
         lua_,
         memory_,
+        sdk_,
         gameProvider_,
         fonts_,
         brandBackground_,

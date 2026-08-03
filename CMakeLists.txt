@@ -119,6 +119,7 @@ set(DIRECT_MENU_SDK_SOURCES
     src/sdk/Player.cpp
     src/sdk/PlayerManager.cpp
     src/sdk/SDK.cpp
+    src/sdk/SDKDiagnostics.cpp
     src/sdk/Vehicle.cpp
     src/sdk/VehicleManager.cpp
     src/sdk/World.cpp
@@ -278,8 +279,7 @@ if(BUILD_TESTING)
         src/core/MemoryManagerAPI.cpp
         src/core/SignatureManager.cpp
         src/logging/Logger.cpp
-        src/natives/NativeQueue.cpp
-        src/natives/NativeScheduler.cpp
+        ${DIRECT_MENU_NATIVE_SOURCES}
     )
     target_include_directories(SDKSmoke PRIVATE src)
     target_compile_features(SDKSmoke PRIVATE cxx_std_20)

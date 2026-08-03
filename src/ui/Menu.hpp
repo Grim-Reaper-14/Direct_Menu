@@ -34,6 +34,10 @@ namespace smf::scripting {
 class LuaManager;
 }
 
+namespace smf::sdk {
+class SDK;
+}
+
 namespace smf::providers {
 class GameProvider;
 }
@@ -60,6 +64,7 @@ enum class MenuPage {
     Settings,
     StyleEditor,
     Lua,
+    SdkExplorer,
     Themes,
     Images,
     Fonts,
@@ -81,6 +86,7 @@ public:
         const filesystem::FileSystemManager& fileSystem,
         scripting::LuaManager& lua,
         core::MemoryManagerAPI& memory,
+        sdk::SDK& sdk,
         providers::GameProvider& gameProvider,
         FontManager& fonts,
         ImageLoader& brandBackground,
@@ -126,6 +132,7 @@ private:
     void RenderSettings();
     void RenderStyleEditor();
     void RenderLua();
+    void RenderSdkExplorer();
     void RenderThemes();
     void RenderImages();
     void RenderFonts();
@@ -140,6 +147,7 @@ private:
     const filesystem::FileSystemManager& fileSystem_;
     scripting::LuaManager& lua_;
     core::MemoryManagerAPI& memory_;
+    sdk::SDK& sdk_;
     providers::GameProvider& gameProvider_;
     FontManager& fonts_;
     ImageLoader& brandBackground_;

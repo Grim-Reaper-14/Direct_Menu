@@ -121,6 +121,14 @@ end)
             assert(SDK.camera(15):handle() == 15)
             assert(SDK.has_local_player())
             assert(SDK.local_player():handle() == 77)
+            local status = SDK.status()
+            assert(type(status) == "table")
+            assert(status.process_attached == false)
+            assert(status.native_backend == false)
+            assert(status.environment == "Unknown")
+            assert(status.invocation_allowed == false)
+            assert(status.has_local_player == true)
+            assert(status.local_player_handle == 77)
         )lua", sol::script_pass_on_error);
 
         if (!bindingCheck.valid()) {

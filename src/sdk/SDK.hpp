@@ -9,6 +9,7 @@
 #include "natives/NativeScheduler.hpp"
 #include "sdk/CameraManager.hpp"
 #include "sdk/PlayerManager.hpp"
+#include "sdk/SDKDiagnostics.hpp"
 #include "sdk/VehicleManager.hpp"
 #include "sdk/World.hpp"
 
@@ -62,6 +63,8 @@ public:
 
     [[nodiscard]] World& GameWorld() noexcept;
     [[nodiscard]] const World& GameWorld() const noexcept;
+
+    [[nodiscard]] SDKDiagnostics Diagnostics() const;
 
 private:
     core::MemoryManagerAPI* memory_{};

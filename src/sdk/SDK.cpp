@@ -56,4 +56,26 @@ const CameraManager& SDK::Cameras() const noexcept { return cameras_; }
 World& SDK::GameWorld() noexcept { return world_; }
 const World& SDK::GameWorld() const noexcept { return world_; }
 
+SDKDiagnostics SDK::Diagnostics() const {
+    const auto scheduler = nativeScheduler_->Stats();
+
+    SDKDiagnostics diagnostics{};
+    diagnostics.processAttached = memory_->IsProcessAttached();
+    diagnostics.signatureDefinitions = signatures_->DefinitionCount();
+    diagnostics.nativeBackendAvailable = nativeInvoker_->HasBackend();
+    diagnostics.nativeEnvironment = nativeInvoker_->CurrentEnvironment();
+    diagnostics.nativeInvocationAllowed = nativeInvoker_->IsInvocationAllowed();
+    diagnostics.registeredNatives = nativeRegistry_->Size();
+    diagnostics.pendingNativeTasks = nativeScheduler_->PendingCount();
+    diagnostics.schedulerFrames = scheduler.frames;
+    diagnostics.executedNativeTasks = scheduler.executedTasks;
+    diagnostics.failedNativeTasks = scheduler.failedTasks;
+    diagnostics.crossmapEntries = nativeCrossmap_->Size();
+    diagnostics.crossmapVersion = nativeCrossmap_->Version();
+    diagnostics.nativeMetadataEntries = nativeDatabase_->Size();
+    diagnostics.hasLocalPlayer = players_.HasLocal();
+    diagnostics.localPlayerHandle = players_.LocalHandle();
+    return diagnostics;
+}
+
 } // namespace smf::sdk

@@ -7,6 +7,7 @@
 #include "sdk/Vehicle.hpp"
 
 #include <cstdint>
+#include <string>
 
 namespace smf::scripting {
 namespace {
@@ -51,6 +52,23 @@ void LuaSDKBindings::Register(sol::state& lua, sdk::SDK& services) {
     });
     api.set_function("local_player", [&services] {
         return services.Players().Local();
+    });
+    api.set_function("status", [&services](sol::this_state state) {
+        sol::state_view view(state);
+        const sdk::SDKDiagnostics diagnostics = services.Diagnostics();
+        sol::table status = view.create_table();
+        status["process_attached"] = diagnostics.processAttached;
+        status["signature_definitions"] = diagnostics.signatureDefinitions;
+        status["native_backend"] = diagnostics.nativeBackendAvailable;
+        status["environment"] = std::string{diagnostics.EnvironmentName()};
+        status["invocation_allowed"] = diagnostics.nativeInvocationAllowed;
+        status["registered_natives"] = diagnostics.registeredNatives;
+        status["pending_tasks"] = diagnostics.pendingNativeTasks;
+        status["crossmap_entries"] = diagnostics.crossmapEntries;
+        status["native_metadata_entries"] = diagnostics.nativeMetadataEntries;
+        status["has_local_player"] = diagnostics.hasLocalPlayer;
+        status["local_player_handle"] = diagnostics.localPlayerHandle;
+        return status;
     });
 }
 
