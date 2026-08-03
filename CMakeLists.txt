@@ -112,6 +112,8 @@ set(DIRECT_MENU_NATIVE_SOURCES
 
 set(DIRECT_MENU_SDK_SOURCES
     src/sdk/Entity.cpp
+    src/sdk/Player.cpp
+    src/sdk/PlayerManager.cpp
     src/sdk/SDK.cpp
 )
 

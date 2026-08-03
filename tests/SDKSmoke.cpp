@@ -6,10 +6,13 @@
 #include "natives/NativeRegistry.hpp"
 #include "natives/NativeScheduler.hpp"
 #include "sdk/Entity.hpp"
+#include "sdk/Player.hpp"
+#include "sdk/PlayerManager.hpp"
 #include "sdk/SDK.hpp"
 #include "sdk/Types.hpp"
 
 #include <iostream>
+#include <type_traits>
 
 namespace {
 
@@ -38,6 +41,9 @@ int main() {
         nativeCrossmap,
         nativeDatabase);
 
+    static_assert(!std::is_copy_constructible_v<smf::sdk::SDK>);
+    static_assert(!std::is_move_constructible_v<smf::sdk::SDK>);
+
     const smf::sdk::Entity empty;
     if (empty.IsBound() || empty.HasValue() || empty ||
         empty.Handle() != smf::sdk::InvalidEntityHandle ||
@@ -65,6 +71,35 @@ int main() {
     entity.Reset();
     if (entity != empty) {
         return Fail("Entity reset failed.");
+    }
+
+    smf::sdk::PlayerManager& players = services.Players();
+    if (players.HasLocal() ||
+        players.LocalHandle() != smf::sdk::InvalidEntityHandle) {
+        return Fail("PlayerManager default local state failed.");
+    }
+
+    const smf::sdk::Player player = players.FromHandle(7);
+    if (!player || player.Handle() != 7 || player.Services() != &services) {
+        return Fail("PlayerManager handle construction failed.");
+    }
+
+    const smf::sdk::Player emptyLocal = players.Local();
+    if (emptyLocal || !emptyLocal.IsBound() ||
+        emptyLocal.Services() != &services) {
+        return Fail("PlayerManager empty local wrapper failed.");
+    }
+
+    players.SetLocalHandle(11);
+    const smf::sdk::Player local = players.Local();
+    if (!players.HasLocal() || players.LocalHandle() != 11 ||
+        !local || local.Handle() != 11 || local.Services() != &services) {
+        return Fail("PlayerManager local handle state failed.");
+    }
+
+    players.ClearLocal();
+    if (players.HasLocal() || players.Local()) {
+        return Fail("PlayerManager local reset failed.");
     }
 
     constexpr smf::sdk::Vector3 position{1.0F, 2.0F, 3.0F};

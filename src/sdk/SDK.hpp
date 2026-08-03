@@ -7,6 +7,7 @@
 #include "natives/NativeInvoker.hpp"
 #include "natives/NativeRegistry.hpp"
 #include "natives/NativeScheduler.hpp"
+#include "sdk/PlayerManager.hpp"
 
 namespace smf::sdk {
 
@@ -20,6 +21,11 @@ public:
         natives::NativeScheduler& nativeScheduler,
         natives::NativeCrossmap& nativeCrossmap,
         natives::NativeDatabase& nativeDatabase) noexcept;
+
+    SDK(const SDK&) = delete;
+    SDK& operator=(const SDK&) = delete;
+    SDK(SDK&&) = delete;
+    SDK& operator=(SDK&&) = delete;
 
     [[nodiscard]] core::MemoryManagerAPI& Memory() noexcept;
     [[nodiscard]] const core::MemoryManagerAPI& Memory() const noexcept;
@@ -42,6 +48,9 @@ public:
     [[nodiscard]] natives::NativeDatabase& NativeDatabase() noexcept;
     [[nodiscard]] const natives::NativeDatabase& NativeDatabase() const noexcept;
 
+    [[nodiscard]] PlayerManager& Players() noexcept;
+    [[nodiscard]] const PlayerManager& Players() const noexcept;
+
 private:
     core::MemoryManagerAPI* memory_{};
     core::SignatureManager* signatures_{};
@@ -50,6 +59,7 @@ private:
     natives::NativeScheduler* nativeScheduler_{};
     natives::NativeCrossmap* nativeCrossmap_{};
     natives::NativeDatabase* nativeDatabase_{};
+    PlayerManager players_;
 };
 
 } // namespace smf::sdk

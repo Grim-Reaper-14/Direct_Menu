@@ -16,7 +16,8 @@ SDK::SDK(
       nativeRegistry_(&nativeRegistry),
       nativeScheduler_(&nativeScheduler),
       nativeCrossmap_(&nativeCrossmap),
-      nativeDatabase_(&nativeDatabase) {
+      nativeDatabase_(&nativeDatabase),
+      players_(*this) {
 }
 
 core::MemoryManagerAPI& SDK::Memory() noexcept { return *memory_; }
@@ -39,5 +40,8 @@ const natives::NativeCrossmap& SDK::NativeCrossmap() const noexcept { return *na
 
 natives::NativeDatabase& SDK::NativeDatabase() noexcept { return *nativeDatabase_; }
 const natives::NativeDatabase& SDK::NativeDatabase() const noexcept { return *nativeDatabase_; }
+
+PlayerManager& SDK::Players() noexcept { return players_; }
+const PlayerManager& SDK::Players() const noexcept { return players_; }
 
 } // namespace smf::sdk
