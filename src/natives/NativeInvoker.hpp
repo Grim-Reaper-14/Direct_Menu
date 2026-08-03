@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -7,7 +8,6 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -40,15 +40,16 @@ public:
     [[nodiscard]] Environment CurrentEnvironment() const noexcept;
     [[nodiscard]] bool IsInvocationAllowed() const noexcept;
 
-    template <typename Result = void, typename... Args>
+    template <typename Result, typename... Args>
     [[nodiscard]] std::optional<Result> Invoke(
         const NativeHash hash,
         std::string& errorMessage,
         Args... arguments) const {
+        static_assert(!std::is_void_v<Result>);
         static_assert((IsSupportedArgument<Args>() && ...));
-        static_assert(std::is_void_v<Result> || IsSupportedResult<Result>());
+        static_assert(IsSupportedResult<Result>());
 
-        std::vector<NativeWord> packedArguments{
+        const std::vector<NativeWord> packedArguments{
             PackArgument(arguments)...
         };
 
@@ -57,14 +58,22 @@ public:
             return std::nullopt;
         }
 
-        if constexpr (std::is_void_v<Result>) {
-            return std::optional<Result>{};
-        } else {
-            return UnpackResult<Result>(rawResult);
-        }
+        return UnpackResult<Result>(rawResult);
     }
 
+    template <typename... Args>
     [[nodiscard]] bool InvokeVoid(
+        const NativeHash hash,
+        std::string& errorMessage,
+        Args... arguments) const {
+        static_assert((IsSupportedArgument<Args>() && ...));
+        const std::vector<NativeWord> packedArguments{
+            PackArgument(arguments)...
+        };
+        return InvokeVoidRaw(hash, packedArguments, errorMessage);
+    }
+
+    [[nodiscard]] bool InvokeVoidRaw(
         NativeHash hash,
         std::span<const NativeWord> arguments,
         std::string& errorMessage) const;
