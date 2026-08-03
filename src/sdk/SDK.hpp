@@ -8,6 +8,7 @@
 #include "natives/NativeRegistry.hpp"
 #include "natives/NativeScheduler.hpp"
 #include "sdk/PlayerManager.hpp"
+#include "sdk/VehicleManager.hpp"
 
 namespace smf::sdk {
 
@@ -51,6 +52,9 @@ public:
     [[nodiscard]] PlayerManager& Players() noexcept;
     [[nodiscard]] const PlayerManager& Players() const noexcept;
 
+    [[nodiscard]] VehicleManager& Vehicles() noexcept;
+    [[nodiscard]] const VehicleManager& Vehicles() const noexcept;
+
 private:
     core::MemoryManagerAPI* memory_{};
     core::SignatureManager* signatures_{};
@@ -60,6 +64,7 @@ private:
     natives::NativeCrossmap* nativeCrossmap_{};
     natives::NativeDatabase* nativeDatabase_{};
     PlayerManager players_;
+    VehicleManager vehicles_;
 };
 
 } // namespace smf::sdk

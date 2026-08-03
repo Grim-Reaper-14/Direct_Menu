@@ -10,6 +10,8 @@
 #include "sdk/PlayerManager.hpp"
 #include "sdk/SDK.hpp"
 #include "sdk/Types.hpp"
+#include "sdk/Vehicle.hpp"
+#include "sdk/VehicleManager.hpp"
 
 #include <iostream>
 #include <type_traits>
@@ -100,6 +102,20 @@ int main() {
     players.ClearLocal();
     if (players.HasLocal() || players.Local()) {
         return Fail("PlayerManager local reset failed.");
+    }
+
+    smf::sdk::VehicleManager& vehicles = services.Vehicles();
+    const smf::sdk::Vehicle vehicle = vehicles.FromHandle(23);
+    if (!vehicle || vehicle.Handle() != 23 ||
+        vehicle.Services() != &services) {
+        return Fail("VehicleManager handle construction failed.");
+    }
+
+    const smf::sdk::Vehicle invalidVehicle =
+        vehicles.FromHandle(smf::sdk::InvalidEntityHandle);
+    if (invalidVehicle || !invalidVehicle.IsBound() ||
+        invalidVehicle.Services() != &services) {
+        return Fail("VehicleManager invalid handle state failed.");
     }
 
     constexpr smf::sdk::Vector3 position{1.0F, 2.0F, 3.0F};

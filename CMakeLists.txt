@@ -115,6 +115,8 @@ set(DIRECT_MENU_SDK_SOURCES
     src/sdk/Player.cpp
     src/sdk/PlayerManager.cpp
     src/sdk/SDK.cpp
+    src/sdk/Vehicle.cpp
+    src/sdk/VehicleManager.cpp
 )
 
 add_executable(Direct_Menu WIN32
