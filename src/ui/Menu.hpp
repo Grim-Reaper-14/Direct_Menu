@@ -5,7 +5,9 @@
 #include <Windows.h>
 
 #include <array>
+#include <cstdint>
 #include <functional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -65,6 +67,7 @@ enum class MenuPage {
     StyleEditor,
     Lua,
     SdkExplorer,
+    NativeExplorer,
     Themes,
     Images,
     Fonts,
@@ -133,6 +136,7 @@ private:
     void RenderStyleEditor();
     void RenderLua();
     void RenderSdkExplorer();
+    void RenderNativeExplorer();
     void RenderThemes();
     void RenderImages();
     void RenderFonts();
@@ -166,6 +170,13 @@ private:
     std::array<float, 3> teleportPosition_{0.0F, 0.0F, 0.0F};
     std::array<char, 512> imagePath_{};
     std::array<char, 64> configurationName_{"default"};
+    std::array<char, 96> nativeSearch_{};
+    std::uint64_t nativeHash_{};
+    std::array<std::uint64_t, 16> nativeArguments_{};
+    int nativeArgumentCount_{};
+    bool nativeInvocationPending_{};
+    std::uint64_t nativeLastResult_{};
+    std::string nativeInvocationStatus_;
     std::vector<std::string> configurationNames_;
 };
 

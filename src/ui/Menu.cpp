@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cfloat>
+#include <cstdint>
 #include <cstring>
 #include <format>
 #include <string>
@@ -50,6 +51,29 @@ bool ContainsCaseInsensitive(
                    std::tolower(static_cast<unsigned char>(right));
         });
     return found != haystack.end();
+}
+
+std::string_view NativeValueTypeName(const natives::NativeValueType type) {
+    using enum natives::NativeValueType;
+    switch (type) {
+    case Void: return "void";
+    case Boolean: return "bool";
+    case Integer: return "int";
+    case UnsignedInteger: return "uint";
+    case Float: return "float";
+    case Double: return "double";
+    case Pointer: return "pointer";
+    case String: return "string";
+    case Vector3: return "Vector3";
+    case Entity: return "Entity";
+    case Ped: return "Ped";
+    case Player: return "Player";
+    case Vehicle: return "Vehicle";
+    case Object: return "Object";
+    case Hash: return "Hash";
+    case Unknown: return "unknown";
+    }
+    return "unknown";
 }
 
 template <std::size_t Size>
@@ -315,6 +339,9 @@ void Menu::RenderMain() {
         case MenuPage::SdkExplorer:
             RenderSdkExplorer();
             break;
+        case MenuPage::NativeExplorer:
+            RenderNativeExplorer();
+            break;
         case MenuPage::StyleEditor:
             RenderStyleEditor();
             break;
@@ -387,6 +414,8 @@ std::string_view Menu::PageTitle(const MenuPage page) {
         return "Settings / Lua";
     case MenuPage::SdkExplorer:
         return "Settings / SDK Explorer";
+    case MenuPage::NativeExplorer:
+        return "Settings / Native Explorer";
     case MenuPage::StyleEditor:
         return "Settings / Style Editor";
     case MenuPage::Themes:
@@ -431,6 +460,8 @@ std::string_view Menu::PageDescription(const MenuPage page) {
         return "Refresh and manage Lua scripts and review the current scripting runtime status.";
     case MenuPage::SdkExplorer:
         return "Inspect the read-only SDK container, invocation policy, managers, and native-runtime counters.";
+    case MenuPage::NativeExplorer:
+        return "Search native metadata and queue raw invocations through the authorized private-session policy.";
     case MenuPage::StyleEditor:
         return "Inspect and edit the active Dear ImGui style, with controls to restore the selected Direct Menu theme.";
     case MenuPage::Themes:
@@ -1032,6 +1063,7 @@ void Menu::RenderSettings() {
 
     SubmenuButton("Lua", MenuPage::Lua);
     SubmenuButton("SDK Explorer", MenuPage::SdkExplorer);
+    SubmenuButton("Native Explorer", MenuPage::NativeExplorer);
     SubmenuButton("Style Editor", MenuPage::StyleEditor);
     SubmenuButton("Themes", MenuPage::Themes);
     SubmenuButton("Image Loader", MenuPage::Images);
@@ -1124,6 +1156,179 @@ void Menu::RenderSdkExplorer() {
     ImGui::TextUnformatted("Vehicle manager: Ready");
     ImGui::TextUnformatted("Camera manager: Ready");
     ImGui::TextUnformatted("World object manager: Ready");
+}
+
+void Menu::RenderNativeExplorer() {
+    const sdk::SDKDiagnostics diagnostics = sdk_.Diagnostics();
+
+    RenderInfoCard(
+        "Search registered native metadata, inspect signatures, and queue a "
+        "raw invocation. Calls remain disabled unless a backend is installed "
+        "and the runtime confirms single-player or an authorized private session.");
+
+    ImGui::SeparatorText("Safety Gate");
+    ImGui::Text(
+        "Environment: %.*s",
+        static_cast<int>(diagnostics.EnvironmentName().size()),
+        diagnostics.EnvironmentName().data());
+    ImGui::Text(
+        "Backend: %s",
+        diagnostics.nativeBackendAvailable ? "Available" : "Not configured");
+    ImGui::TextColored(
+        diagnostics.nativeInvocationAllowed
+            ? ImVec4{0.38F, 0.92F, 0.52F, 1.0F}
+            : ImVec4{0.94F, 0.66F, 0.28F, 1.0F},
+        "%s",
+        diagnostics.nativeInvocationAllowed
+            ? "Private-session policy allows invocation"
+            : "Invocation is locked by policy");
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Native Catalog");
+    ImGui::InputText("Search", nativeSearch_.data(), nativeSearch_.size());
+
+    const auto results = sdk_.NativeDatabase().Search(nativeSearch_.data(), 100);
+    ImGui::Text("Showing %zu result(s)", results.size());
+    if (ImGui::BeginChild("##native_results", {0.0F, 180.0F}, true)) {
+        if (results.empty()) {
+            ImGui::TextDisabled(
+                diagnostics.nativeMetadataEntries == 0
+                    ? "No native catalog is loaded yet."
+                    : "No native metadata matches this search.");
+        }
+
+        for (const auto& native : results) {
+            ImGui::PushID(
+                static_cast<int>(native.hash ^ (native.hash >> 32U)));
+            const std::string label = std::format(
+                "{}::{}  [0x{:016X}]",
+                native.nameSpace,
+                native.name,
+                native.hash);
+            if (ImGui::Selectable(label.c_str(), nativeHash_ == native.hash)) {
+                nativeHash_ = native.hash;
+                nativeArgumentCount_ = static_cast<int>(std::min<std::size_t>(
+                    native.parameters.size(),
+                    nativeArguments_.size()));
+                nativeInvocationStatus_.clear();
+            }
+            ImGui::PopID();
+        }
+    }
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Invocation");
+    ImGui::InputScalar(
+        "Native Hash",
+        ImGuiDataType_U64,
+        &nativeHash_,
+        nullptr,
+        nullptr,
+        "%016llX",
+        ImGuiInputTextFlags_CharsHexadecimal);
+
+    if (const auto metadata = sdk_.NativeDatabase().Find(nativeHash_)) {
+        const std::string_view returnType =
+            NativeValueTypeName(metadata->returnType);
+        ImGui::Text(
+            "%s::%s -> %.*s",
+            metadata->nameSpace.c_str(),
+            metadata->name.c_str(),
+            static_cast<int>(returnType.size()),
+            returnType.data());
+        if (!metadata->description.empty()) {
+            ImGui::TextWrapped("%s", metadata->description.c_str());
+        }
+        for (std::size_t index = 0; index < metadata->parameters.size(); ++index) {
+            const auto& parameter = metadata->parameters[index];
+            const std::string_view parameterType =
+                NativeValueTypeName(parameter.type);
+            ImGui::BulletText(
+                "%zu: %s (%.*s)%s%s",
+                index,
+                parameter.name.c_str(),
+                static_cast<int>(parameterType.size()),
+                parameterType.data(),
+                parameter.output ? " [out]" : "",
+                parameter.optional ? " [optional]" : "");
+        }
+    }
+
+    ImGui::SliderInt(
+        "Argument Count",
+        &nativeArgumentCount_,
+        0,
+        static_cast<int>(nativeArguments_.size()));
+    for (int index = 0; index < nativeArgumentCount_; ++index) {
+        const std::string label = std::format("Argument {}", index);
+        ImGui::InputScalar(
+            label.c_str(),
+            ImGuiDataType_U64,
+            &nativeArguments_[static_cast<std::size_t>(index)],
+            nullptr,
+            nullptr,
+            "%016llX",
+            ImGuiInputTextFlags_CharsHexadecimal);
+    }
+
+    const bool canInvoke =
+        diagnostics.nativeBackendAvailable &&
+        diagnostics.nativeInvocationAllowed &&
+        nativeHash_ != 0 &&
+        !nativeInvocationPending_;
+    ImGui::BeginDisabled(!canInvoke);
+    if (ImGui::Button("Queue Native Invocation", {-1.0F, 40.0F})) {
+        const auto requestedHash = nativeHash_;
+        const std::vector<natives::NativeWord> arguments(
+            nativeArguments_.begin(),
+            nativeArguments_.begin() + nativeArgumentCount_);
+        nativeInvocationPending_ = true;
+        nativeInvocationStatus_ = "Queued for the native scheduler.";
+
+        const bool queued = sdk_.NativeScheduler().Submit(
+            [this, requestedHash, arguments] {
+                const auto resolvedHash =
+                    sdk_.NativeCrossmap().ResolveOrOriginal(requestedHash);
+                std::string error;
+                natives::NativeWord result = 0;
+                const bool invoked = sdk_.NativeInvoker().InvokeRaw(
+                    resolvedHash,
+                    arguments,
+                    result,
+                    error);
+                nativeLastResult_ = result;
+                nativeInvocationPending_ = false;
+                nativeInvocationStatus_ = invoked
+                    ? std::format(
+                          "Completed. Result: 0x{:016X} ({})",
+                          result,
+                          result)
+                    : std::move(error);
+                notifications_.Push(
+                    invoked ? "Native invocation completed."
+                            : nativeInvocationStatus_,
+                    invoked ? NotificationKind::Success
+                            : NotificationKind::Error,
+                    invoked ? 3.0 : 6.0);
+            });
+
+        if (!queued) {
+            nativeInvocationPending_ = false;
+            nativeInvocationStatus_ =
+                "The native scheduler rejected the request.";
+        }
+    }
+    ImGui::EndDisabled();
+
+    if (nativeInvocationPending_) {
+        ImGui::TextDisabled("Invocation pending...");
+    } else if (!nativeInvocationStatus_.empty()) {
+        ImGui::TextWrapped("%s", nativeInvocationStatus_.c_str());
+    }
+    ImGui::TextDisabled(
+        "Last raw result: 0x%016llX",
+        static_cast<unsigned long long>(nativeLastResult_));
 }
 
 void Menu::RenderLua() {

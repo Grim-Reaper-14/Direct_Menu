@@ -6,6 +6,7 @@
 #include "natives/NativeRegistry.hpp"
 #include "natives/NativeScheduler.hpp"
 
+#include <array>
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
@@ -73,11 +74,29 @@ int main() {
         return Fail("NativeInvoker typed invocation failed.");
     }
 
+    const std::array<NativeWord, 2> rawArguments{19, 23};
+    NativeWord rawResult = 0;
+    if (!invoker.InvokeRaw(AddHash, rawArguments, rawResult, error) ||
+        rawResult != 42 || !error.empty()) {
+        return Fail("NativeInvoker raw result invocation failed.");
+    }
+
+    invoker.SetEnvironmentProbe([] {
+        return NativeInvoker::Environment::PrivateAuthorized;
+    });
+    if (!invoker.InvokeRaw(AddHash, rawArguments, rawResult, error) ||
+        rawResult != 42) {
+        return Fail("NativeInvoker rejected an authorized private session.");
+    }
+
     invoker.SetEnvironmentProbe([] {
         return NativeInvoker::Environment::PublicOnline;
     });
     if (invoker.Invoke<std::uint64_t>(AddHash, error, 1ULL, 2ULL)) {
         return Fail("NativeInvoker did not fail closed in PublicOnline.");
+    }
+    if (invoker.InvokeRaw(AddHash, rawArguments, rawResult, error)) {
+        return Fail("NativeInvoker raw invocation did not fail closed.");
     }
 
     NativeScheduler scheduler;

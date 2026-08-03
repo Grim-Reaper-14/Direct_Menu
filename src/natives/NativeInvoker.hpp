@@ -78,6 +78,12 @@ public:
         std::span<const NativeWord> arguments,
         std::string& errorMessage) const;
 
+    [[nodiscard]] bool InvokeRaw(
+        NativeHash hash,
+        std::span<const NativeWord> arguments,
+        NativeWord& result,
+        std::string& errorMessage) const;
+
 private:
     template <typename T>
     static consteval bool IsSupportedArgument() {
@@ -116,12 +122,6 @@ private:
             return static_cast<T>(value);
         }
     }
-
-    [[nodiscard]] bool InvokeRaw(
-        NativeHash hash,
-        std::span<const NativeWord> arguments,
-        NativeWord& result,
-        std::string& errorMessage) const;
 
     mutable std::mutex mutex_;
     Backend backend_;
