@@ -103,6 +103,13 @@ target_compile_definitions(imgui PUBLIC
     _UNICODE
 )
 
+set(DIRECT_MENU_NATIVE_SOURCES
+    src/natives/NativeInvoker.cpp
+    src/natives/NativeQueue.cpp
+    src/natives/NativeRegistry.cpp
+    src/natives/NativeScheduler.cpp
+)
+
 add_executable(Direct_Menu WIN32
     src/resources/Direct_Menu.rc
     src/main.cpp
@@ -119,6 +126,7 @@ add_executable(Direct_Menu WIN32
     src/features/FeatureRegistry.cpp
     src/filesystem/FileSystemManager.cpp
     src/logging/Logger.cpp
+    ${DIRECT_MENU_NATIVE_SOURCES}
     src/providers/GameProvider.cpp
     src/scripting/LuaBindingLibrary.cpp
     src/scripting/LuaCommands.cpp
@@ -229,6 +237,23 @@ if(BUILD_TESTING)
     target_compile_features(ImGuiStyleSettingsSmoke PRIVATE cxx_std_20)
     target_link_libraries(ImGuiStyleSettingsSmoke PRIVATE imgui)
     add_test(NAME ImGuiStyleSettingsSmoke COMMAND ImGuiStyleSettingsSmoke)
+
+    add_executable(NativeRuntimeSmoke
+        tests/NativeRuntimeSmoke.cpp
+        ${DIRECT_MENU_NATIVE_SOURCES}
+    )
+    target_include_directories(NativeRuntimeSmoke PRIVATE src)
+    target_compile_features(NativeRuntimeSmoke PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(NativeRuntimeSmoke PRIVATE
+            /W4
+            /permissive-
+            /EHsc
+            /utf-8
+            /Zc:__cplusplus
+        )
+    endif()
+    add_test(NAME NativeRuntimeSmoke COMMAND NativeRuntimeSmoke)
 
     add_executable(LuaRuntimeSmoke
         tests/LuaRuntimeSmoke.cpp
