@@ -2,7 +2,13 @@
 
 namespace smf::sdk {
 
+
 SDK::SDK(
+ // Load all authorized natives
+    for (const auto& n : kNativeList) {
+        nativeDatabase_.Register(n.name, n.hash);
+    }
+
     core::MemoryManagerAPI& memory,
     core::SignatureManager& signatures,
     natives::NativeInvoker& nativeInvoker,
