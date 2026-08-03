@@ -6,7 +6,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
+#include <span>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
