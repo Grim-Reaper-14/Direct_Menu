@@ -8,6 +8,14 @@ World::World(SDK& services) noexcept
     : services_(&services) {
 }
 
+EntityManager& World::Entities() noexcept {
+    return services_->Entities();
+}
+
+const EntityManager& World::Entities() const noexcept {
+    return services_->Entities();
+}
+
 PlayerManager& World::Players() noexcept {
     return services_->Players();
 }

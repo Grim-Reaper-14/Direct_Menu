@@ -3,6 +3,7 @@
 namespace smf::sdk {
 
 class CameraManager;
+class EntityManager;
 class PlayerManager;
 class SDK;
 class VehicleManager;
@@ -10,6 +11,9 @@ class VehicleManager;
 class World final {
 public:
     explicit World(SDK& services) noexcept;
+
+    [[nodiscard]] EntityManager& Entities() noexcept;
+    [[nodiscard]] const EntityManager& Entities() const noexcept;
 
     [[nodiscard]] PlayerManager& Players() noexcept;
     [[nodiscard]] const PlayerManager& Players() const noexcept;

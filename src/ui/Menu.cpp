@@ -1119,6 +1119,7 @@ void Menu::RenderSdkExplorer() {
     } else {
         ImGui::TextDisabled("Local player handle is not set.");
     }
+    ImGui::TextUnformatted("Entity manager: Ready");
     ImGui::TextUnformatted("Player manager: Ready");
     ImGui::TextUnformatted("Vehicle manager: Ready");
     ImGui::TextUnformatted("Camera manager: Ready");

@@ -116,6 +116,7 @@ set(DIRECT_MENU_SDK_SOURCES
     src/sdk/Camera.cpp
     src/sdk/CameraManager.cpp
     src/sdk/Entity.cpp
+    src/sdk/EntityManager.cpp
     src/sdk/Player.cpp
     src/sdk/PlayerManager.cpp
     src/sdk/SDK.cpp

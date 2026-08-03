@@ -8,6 +8,7 @@
 #include "natives/NativeRegistry.hpp"
 #include "natives/NativeScheduler.hpp"
 #include "sdk/CameraManager.hpp"
+#include "sdk/EntityManager.hpp"
 #include "sdk/PlayerManager.hpp"
 #include "sdk/SDKDiagnostics.hpp"
 #include "sdk/VehicleManager.hpp"
@@ -52,6 +53,9 @@ public:
     [[nodiscard]] natives::NativeDatabase& NativeDatabase() noexcept;
     [[nodiscard]] const natives::NativeDatabase& NativeDatabase() const noexcept;
 
+    [[nodiscard]] EntityManager& Entities() noexcept;
+    [[nodiscard]] const EntityManager& Entities() const noexcept;
+
     [[nodiscard]] PlayerManager& Players() noexcept;
     [[nodiscard]] const PlayerManager& Players() const noexcept;
 
@@ -74,6 +78,7 @@ private:
     natives::NativeScheduler* nativeScheduler_{};
     natives::NativeCrossmap* nativeCrossmap_{};
     natives::NativeDatabase* nativeDatabase_{};
+    EntityManager entities_;
     PlayerManager players_;
     VehicleManager vehicles_;
     CameraManager cameras_;

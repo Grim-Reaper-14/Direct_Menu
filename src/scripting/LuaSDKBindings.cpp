@@ -36,7 +36,7 @@ void LuaSDKBindings::Register(sol::state& lua, sdk::SDK& services) {
 
     sol::table api = lua.create_named_table("SDK");
     api.set_function("entity", [&services](const std::uint32_t handle) {
-        return sdk::Entity(services, handle);
+        return services.Entities().FromHandle(handle);
     });
     api.set_function("player", [&services](const std::uint32_t handle) {
         return services.Players().FromHandle(handle);

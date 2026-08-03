@@ -8,6 +8,7 @@
 #include "sdk/Camera.hpp"
 #include "sdk/CameraManager.hpp"
 #include "sdk/Entity.hpp"
+#include "sdk/EntityManager.hpp"
 #include "sdk/Player.hpp"
 #include "sdk/PlayerManager.hpp"
 #include "sdk/SDK.hpp"
@@ -73,7 +74,8 @@ int main() {
         return Fail("Default Entity state failed.");
     }
 
-    smf::sdk::Entity entity(services, 42);
+    smf::sdk::EntityManager& entities = services.Entities();
+    smf::sdk::Entity entity = entities.FromHandle(42);
     if (!entity.IsBound() || !entity.HasValue() || !entity ||
         entity.Handle() != 42 || entity.Services() != &services) {
         return Fail("Bound Entity state failed.");
@@ -84,7 +86,8 @@ int main() {
         return Fail("Entity value copy failed.");
     }
 
-    const smf::sdk::Entity invalid(services, smf::sdk::InvalidEntityHandle);
+    const smf::sdk::Entity invalid =
+        entities.FromHandle(smf::sdk::InvalidEntityHandle);
     if (!invalid.IsBound() || invalid.HasValue() || invalid ||
         invalid.Services() != &services) {
         return Fail("Invalid Entity handle state failed.");
@@ -164,7 +167,8 @@ int main() {
     }
 
     smf::sdk::World& world = services.GameWorld();
-    if (&world.Players() != &services.Players() ||
+    if (&world.Entities() != &services.Entities() ||
+        &world.Players() != &services.Players() ||
         &world.Vehicles() != &services.Vehicles() ||
         &world.Cameras() != &services.Cameras()) {
         return Fail("World manager facade failed.");

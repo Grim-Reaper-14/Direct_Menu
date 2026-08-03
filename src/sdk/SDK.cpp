@@ -17,6 +17,7 @@ SDK::SDK(
       nativeScheduler_(&nativeScheduler),
       nativeCrossmap_(&nativeCrossmap),
       nativeDatabase_(&nativeDatabase),
+      entities_(*this),
       players_(*this),
       vehicles_(*this),
       cameras_(*this),
@@ -43,6 +44,9 @@ const natives::NativeCrossmap& SDK::NativeCrossmap() const noexcept { return *na
 
 natives::NativeDatabase& SDK::NativeDatabase() noexcept { return *nativeDatabase_; }
 const natives::NativeDatabase& SDK::NativeDatabase() const noexcept { return *nativeDatabase_; }
+
+EntityManager& SDK::Entities() noexcept { return entities_; }
+const EntityManager& SDK::Entities() const noexcept { return entities_; }
 
 PlayerManager& SDK::Players() noexcept { return players_; }
 const PlayerManager& SDK::Players() const noexcept { return players_; }
