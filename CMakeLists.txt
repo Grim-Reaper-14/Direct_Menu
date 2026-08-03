@@ -110,6 +110,11 @@ set(DIRECT_MENU_NATIVE_SOURCES
     src/natives/NativeScheduler.cpp
 )
 
+set(DIRECT_MENU_SDK_SOURCES
+    src/sdk/Entity.cpp
+    src/sdk/SDK.cpp
+)
+
 add_executable(Direct_Menu WIN32
     src/resources/Direct_Menu.rc
     src/main.cpp
@@ -127,6 +132,7 @@ add_executable(Direct_Menu WIN32
     src/filesystem/FileSystemManager.cpp
     src/logging/Logger.cpp
     ${DIRECT_MENU_NATIVE_SOURCES}
+    ${DIRECT_MENU_SDK_SOURCES}
     src/providers/GameProvider.cpp
     src/scripting/LuaBindingLibrary.cpp
     src/scripting/LuaCommands.cpp
@@ -254,6 +260,37 @@ if(BUILD_TESTING)
         )
     endif()
     add_test(NAME NativeRuntimeSmoke COMMAND NativeRuntimeSmoke)
+
+    add_executable(SDKSmoke
+        tests/SDKSmoke.cpp
+        ${DIRECT_MENU_SDK_SOURCES}
+        src/core/Logger.cpp
+        src/core/MemoryManagerAPI.cpp
+        src/core/SignatureManager.cpp
+        src/logging/Logger.cpp
+        src/natives/NativeQueue.cpp
+        src/natives/NativeScheduler.cpp
+    )
+    target_include_directories(SDKSmoke PRIVATE src)
+    target_compile_features(SDKSmoke PRIVATE cxx_std_20)
+    target_compile_definitions(SDKSmoke PRIVATE
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        WINVER=0x0A00
+        _WIN32_WINNT=0x0A00
+        UNICODE
+        _UNICODE
+    )
+    if(MSVC)
+        target_compile_options(SDKSmoke PRIVATE
+            /W4
+            /permissive-
+            /EHsc
+            /utf-8
+            /Zc:__cplusplus
+        )
+    endif()
+    add_test(NAME SDKSmoke COMMAND SDKSmoke)
 
     add_executable(LuaRuntimeSmoke
         tests/LuaRuntimeSmoke.cpp

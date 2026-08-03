@@ -1,8 +1,12 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 
 namespace smf::sdk {
+
+using EntityHandle = std::uint32_t;
+inline constexpr EntityHandle InvalidEntityHandle{};
 
 struct Vector3 {
     float x{};
