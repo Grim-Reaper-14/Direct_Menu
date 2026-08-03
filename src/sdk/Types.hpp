@@ -8,6 +8,9 @@ namespace smf::sdk {
 using EntityHandle = std::uint32_t;
 inline constexpr EntityHandle InvalidEntityHandle{};
 
+using CameraHandle = std::uint32_t;
+inline constexpr CameraHandle InvalidCameraHandle{};
+
 struct Vector3 {
     float x{};
     float y{};

@@ -37,6 +37,14 @@ constexpr int ClientHeight = 720;
 Application::Application()
     : memoryLogger_(logger_, "MemoryManager"),
       memory_(&memoryLogger_),
+      sdk_(
+          memory_,
+          signatures_,
+          nativeInvoker_,
+          nativeRegistry_,
+          nativeScheduler_,
+          nativeCrossmap_,
+          nativeDatabase_),
       gameProviderLogger_(logger_, "GameProvider"),
       gameProvider_(&gameProviderLogger_),
       configs_(fileSystem_, logger_),
@@ -70,6 +78,9 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
     tasks_.SetErrorHandler([this](const std::string_view message) {
         logger_.Error(std::string{"Background task failed: "} + std::string{message});
     });
+    nativeScheduler_.SetErrorHandler([this](const std::string& message) {
+        logger_.Error("SDK native task failed: " + message);
+    });
     tasks_.Start(2);
     logger_.Info(
         "Started background task queue with " +
@@ -101,8 +112,9 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
 
     RegisterBuiltInFeatures();
     lua_.BindFeatureRegistry(features_);
-    lua_.Initialize(fileSystem_.LuaScripts());
     lua_.BindMemoryAPI(memory_, signatures_);
+    lua_.BindSDK(sdk_);
+    lua_.Initialize(fileSystem_.LuaScripts());
 
     ui::MenuCallbacks callbacks{};
     callbacks.toggleVisibility = [this] {
@@ -172,6 +184,8 @@ int Application::Run(const HINSTANCE instance, const int showCommand) {
             }
             nextGameAttachmentCheck = now + std::chrono::seconds{2};
         }
+
+        (void)nativeScheduler_.Tick();
 
         if (!menuVisible_ || minimized_) {
             MsgWaitForMultipleObjects(
@@ -621,6 +635,7 @@ void Application::Cleanup() {
     }
 
     tasks_.Shutdown();
+    nativeScheduler_.Clear();
     lua_.Shutdown();
     memory_.DetachProcess();
     menu_.reset();

@@ -12,6 +12,7 @@
 #include "logging/Logger.hpp"
 #include "providers/GameProvider.hpp"
 #include "scripting/LuaManager.hpp"
+#include "sdk/SDK.hpp"
 #include "ui/FontManager.hpp"
 #include "ui/ImageLoader.hpp"
 #include "ui/NotificationCenter.hpp"
@@ -77,6 +78,12 @@ private:
     Logger memoryLogger_;
     MemoryManagerAPI memory_;
     SignatureManager signatures_{memory_};
+    natives::NativeInvoker nativeInvoker_;
+    natives::NativeRegistry nativeRegistry_;
+    natives::NativeScheduler nativeScheduler_;
+    natives::NativeCrossmap nativeCrossmap_;
+    natives::NativeDatabase nativeDatabase_;
+    sdk::SDK sdk_;
     Logger gameProviderLogger_;
     providers::GameProvider gameProvider_;
     TaskQueue tasks_;

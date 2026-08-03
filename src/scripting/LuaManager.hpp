@@ -6,6 +6,7 @@
 #include "scripting/LuaFileSystemSandbox.hpp"
 #include "scripting/LuaMemoryBindings.hpp"
 #include "scripting/LuaModuleManager.hpp"
+#include "scripting/LuaSDKBindings.hpp"
 #include "scripting/LuaScriptsManager.hpp"
 #include "scripting/LuaTimerManager.hpp"
 #include "scripting/LuaUI.hpp"
@@ -22,6 +23,7 @@ class SignatureManager;
 }
 namespace smf::features { class FeatureRegistry; }
 namespace smf::logging { class LoggerApi; }
+namespace smf::sdk { class SDK; }
 namespace smf::scripting {
 
 class LuaManager {
@@ -48,6 +50,7 @@ public:
     void BindMemoryAPI(
         core::MemoryManagerAPI& memory,
         core::SignatureManager& signatures);
+    void BindSDK(sdk::SDK& services);
 
     [[nodiscard]] LuaScriptsManager& ScriptsManager() noexcept;
     [[nodiscard]] LuaModuleManager& Modules() noexcept;
@@ -78,6 +81,7 @@ private:
     bool drawingFrame_{false};
     bool initialized_{false};
     bool memoryApiBound_{false};
+    bool sdkApiBound_{false};
 };
 
 } // namespace smf::scripting

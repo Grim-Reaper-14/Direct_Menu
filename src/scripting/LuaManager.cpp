@@ -99,6 +99,7 @@ void LuaManager::Shutdown() noexcept {
     ui_.Clear();
     activeScriptName_.clear();
     memoryApiBound_ = false;
+    sdkApiBound_ = false;
     initialized_ = false;
     logger_.Info("Lua subsystem shut down.");
 }
@@ -146,7 +147,8 @@ std::string LuaManager::StatusText() const {
     if (!initialized_) return "Lua subsystem is not initialized.";
     if (!bindings_.Ready()) return "Lua 5.4 runtime is initialized; waiting for the native feature registry binding.";
     if (!memoryApiBound_) return "Lua API v2.1 ready; memory and signature bindings are not attached yet.";
-    return "Lua API v2.1 ready: Lua 5.4 + sol2 with UI, modules, commands, events, timers, sandboxed files, and read-only Memory/Signatures APIs.";
+    if (!sdkApiBound_) return "Lua API v2.1 ready; safe SDK handle bindings are not attached yet.";
+    return "Lua API v2.1 ready: Lua 5.4 + sol2 with UI, modules, commands, events, timers, sandboxed files, read-only Memory/Signatures, and safe SDK handle APIs.";
 }
 
 std::string LuaManager::ActiveScriptName() const { return activeScriptName_.empty() ? "__native__" : activeScriptName_; }
@@ -174,6 +176,16 @@ void LuaManager::BindMemoryAPI(
     LuaMemoryBindings::Register(luaState_, memory, signatures);
     memoryApiBound_ = true;
     logger_.Debug("Read-only Memory and Signatures APIs attached to Lua.");
+}
+
+void LuaManager::BindSDK(sdk::SDK& services) {
+    if (sdkApiBound_) {
+        return;
+    }
+
+    LuaSDKBindings::Register(luaState_, services);
+    sdkApiBound_ = true;
+    logger_.Debug("Safe SDK handle APIs attached to Lua.");
 }
 
 LuaScriptsManager& LuaManager::ScriptsManager() noexcept { return scripts_; }

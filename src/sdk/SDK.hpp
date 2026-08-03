@@ -7,8 +7,10 @@
 #include "natives/NativeInvoker.hpp"
 #include "natives/NativeRegistry.hpp"
 #include "natives/NativeScheduler.hpp"
+#include "sdk/CameraManager.hpp"
 #include "sdk/PlayerManager.hpp"
 #include "sdk/VehicleManager.hpp"
+#include "sdk/World.hpp"
 
 namespace smf::sdk {
 
@@ -55,6 +57,12 @@ public:
     [[nodiscard]] VehicleManager& Vehicles() noexcept;
     [[nodiscard]] const VehicleManager& Vehicles() const noexcept;
 
+    [[nodiscard]] CameraManager& Cameras() noexcept;
+    [[nodiscard]] const CameraManager& Cameras() const noexcept;
+
+    [[nodiscard]] World& GameWorld() noexcept;
+    [[nodiscard]] const World& GameWorld() const noexcept;
+
 private:
     core::MemoryManagerAPI* memory_{};
     core::SignatureManager* signatures_{};
@@ -65,6 +73,8 @@ private:
     natives::NativeDatabase* nativeDatabase_{};
     PlayerManager players_;
     VehicleManager vehicles_;
+    CameraManager cameras_;
+    World world_;
 };
 
 } // namespace smf::sdk

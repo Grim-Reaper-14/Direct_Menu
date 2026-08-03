@@ -5,6 +5,8 @@
 #include "natives/NativeInvoker.hpp"
 #include "natives/NativeRegistry.hpp"
 #include "natives/NativeScheduler.hpp"
+#include "sdk/Camera.hpp"
+#include "sdk/CameraManager.hpp"
 #include "sdk/Entity.hpp"
 #include "sdk/Player.hpp"
 #include "sdk/PlayerManager.hpp"
@@ -12,6 +14,7 @@
 #include "sdk/Types.hpp"
 #include "sdk/Vehicle.hpp"
 #include "sdk/VehicleManager.hpp"
+#include "sdk/World.hpp"
 
 #include <iostream>
 #include <type_traits>
@@ -116,6 +119,32 @@ int main() {
     if (invalidVehicle || !invalidVehicle.IsBound() ||
         invalidVehicle.Services() != &services) {
         return Fail("VehicleManager invalid handle state failed.");
+    }
+
+    smf::sdk::CameraManager& cameras = services.Cameras();
+    smf::sdk::Camera camera = cameras.FromHandle(31);
+    if (!camera || camera.Handle() != 31 || camera.Services() != &services) {
+        return Fail("CameraManager handle construction failed.");
+    }
+
+    camera.Reset();
+    if (camera || camera.IsBound() ||
+        camera.Handle() != smf::sdk::InvalidCameraHandle) {
+        return Fail("Camera reset failed.");
+    }
+
+    const smf::sdk::Camera invalidCamera =
+        cameras.FromHandle(smf::sdk::InvalidCameraHandle);
+    if (invalidCamera || !invalidCamera.IsBound() ||
+        invalidCamera.Services() != &services) {
+        return Fail("CameraManager invalid handle state failed.");
+    }
+
+    smf::sdk::World& world = services.GameWorld();
+    if (&world.Players() != &services.Players() ||
+        &world.Vehicles() != &services.Vehicles() ||
+        &world.Cameras() != &services.Cameras()) {
+        return Fail("World manager facade failed.");
     }
 
     constexpr smf::sdk::Vector3 position{1.0F, 2.0F, 3.0F};

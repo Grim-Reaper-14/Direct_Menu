@@ -104,6 +104,8 @@ target_compile_definitions(imgui PUBLIC
 )
 
 set(DIRECT_MENU_NATIVE_SOURCES
+    src/natives/NativeCrossmap.cpp
+    src/natives/NativeDatabase.cpp
     src/natives/NativeInvoker.cpp
     src/natives/NativeQueue.cpp
     src/natives/NativeRegistry.cpp
@@ -111,12 +113,15 @@ set(DIRECT_MENU_NATIVE_SOURCES
 )
 
 set(DIRECT_MENU_SDK_SOURCES
+    src/sdk/Camera.cpp
+    src/sdk/CameraManager.cpp
     src/sdk/Entity.cpp
     src/sdk/Player.cpp
     src/sdk/PlayerManager.cpp
     src/sdk/SDK.cpp
     src/sdk/Vehicle.cpp
     src/sdk/VehicleManager.cpp
+    src/sdk/World.cpp
 )
 
 add_executable(Direct_Menu WIN32
@@ -148,6 +153,7 @@ add_executable(Direct_Menu WIN32
     src/scripting/LuaModule.cpp
     src/scripting/LuaModuleManager.cpp
     src/scripting/LuaScriptsManager.cpp
+    src/scripting/LuaSDKBindings.cpp
     src/scripting/LuaTimerManager.cpp
     src/scripting/LuaUI.cpp
     src/ui/FontManager.cpp
@@ -313,8 +319,11 @@ if(BUILD_TESTING)
         src/scripting/LuaModule.cpp
         src/scripting/LuaModuleManager.cpp
         src/scripting/LuaScriptsManager.cpp
+        src/scripting/LuaSDKBindings.cpp
         src/scripting/LuaTimerManager.cpp
         src/scripting/LuaUI.cpp
+        ${DIRECT_MENU_NATIVE_SOURCES}
+        ${DIRECT_MENU_SDK_SOURCES}
     )
     target_include_directories(LuaRuntimeSmoke PRIVATE src)
     target_compile_features(LuaRuntimeSmoke PRIVATE cxx_std_20)

@@ -18,7 +18,9 @@ SDK::SDK(
       nativeCrossmap_(&nativeCrossmap),
       nativeDatabase_(&nativeDatabase),
       players_(*this),
-      vehicles_(*this) {
+      vehicles_(*this),
+      cameras_(*this),
+      world_(*this) {
 }
 
 core::MemoryManagerAPI& SDK::Memory() noexcept { return *memory_; }
@@ -47,5 +49,11 @@ const PlayerManager& SDK::Players() const noexcept { return players_; }
 
 VehicleManager& SDK::Vehicles() noexcept { return vehicles_; }
 const VehicleManager& SDK::Vehicles() const noexcept { return vehicles_; }
+
+CameraManager& SDK::Cameras() noexcept { return cameras_; }
+const CameraManager& SDK::Cameras() const noexcept { return cameras_; }
+
+World& SDK::GameWorld() noexcept { return world_; }
+const World& SDK::GameWorld() const noexcept { return world_; }
 
 } // namespace smf::sdk

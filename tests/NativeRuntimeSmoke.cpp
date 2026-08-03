@@ -1,4 +1,6 @@
 #include "natives/NativeCallContext.hpp"
+#include "natives/NativeCrossmap.hpp"
+#include "natives/NativeDatabase.hpp"
 #include "natives/NativeInvoker.hpp"
 #include "natives/NativeQueue.hpp"
 #include "natives/NativeRegistry.hpp"
@@ -8,6 +10,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -103,6 +106,29 @@ int main() {
     if (statistics.frames != 2 || statistics.executedTasks != 4 ||
         statistics.failedTasks != 1 || statistics.lastFrameTasks != 2) {
         return Fail("NativeScheduler statistics failed.");
+    }
+
+    NativeCrossmap crossmap;
+    if (!crossmap.SetVersion("smoke") ||
+        !crossmap.Register(0x2001, 0x3001) ||
+        crossmap.ResolveOrOriginal(0x2001) != 0x3001 ||
+        crossmap.ResolveOrOriginal(0x2002) != 0x2002) {
+        return Fail("NativeCrossmap mapping failed.");
+    }
+
+    NativeDatabase database;
+    NativeInfo info{};
+    info.hash = 0x4001;
+    info.name = "SMOKE_NATIVE";
+    info.nameSpace = "TEST";
+    info.category = "smoke";
+    info.description = "Synthetic smoke-test metadata.";
+    info.returnType = NativeValueType::Integer;
+    if (!database.Register(std::move(info)) ||
+        !database.Contains(0x4001) ||
+        !database.FindByName("smoke_native") ||
+        database.Search("synthetic").size() != 1) {
+        return Fail("NativeDatabase metadata lookup failed.");
     }
 
     return 0;

@@ -3,7 +3,13 @@
 #include "core/SignatureManager.hpp"
 #include "features/FeatureRegistry.hpp"
 #include "logging/Logger.hpp"
+#include "natives/NativeCrossmap.hpp"
+#include "natives/NativeDatabase.hpp"
+#include "natives/NativeInvoker.hpp"
+#include "natives/NativeRegistry.hpp"
+#include "natives/NativeScheduler.hpp"
 #include "scripting/LuaManager.hpp"
+#include "sdk/SDK.hpp"
 
 #include <imgui.h>
 
@@ -77,11 +83,26 @@ end)
         smf::core::Logger memoryLogger{logger, "MemorySmoke"};
         smf::core::MemoryManagerAPI memory{&memoryLogger};
         smf::core::SignatureManager signatures{memory};
+        smf::natives::NativeInvoker nativeInvoker;
+        smf::natives::NativeRegistry nativeRegistry;
+        smf::natives::NativeScheduler nativeScheduler;
+        smf::natives::NativeCrossmap nativeCrossmap;
+        smf::natives::NativeDatabase nativeDatabase;
+        smf::sdk::SDK services(
+            memory,
+            signatures,
+            nativeInvoker,
+            nativeRegistry,
+            nativeScheduler,
+            nativeCrossmap,
+            nativeDatabase);
+        services.Players().SetLocalHandle(77);
         smf::features::FeatureRegistry features;
         smf::scripting::LuaManager lua{logger};
         lua.BindFeatureRegistry(features);
-        lua.Initialize(scripts);
         lua.BindMemoryAPI(memory, signatures);
+        lua.BindSDK(services);
+        lua.Initialize(scripts);
 
         const sol::protected_function_result bindingCheck = lua.State().safe_script(R"lua(
             assert(type(Memory) == "table")
@@ -90,6 +111,16 @@ end)
             assert(Memory.process_id() == 0)
             assert(Signatures.count() == 0)
             assert(Signatures.cached("missing") == nil)
+            assert(type(SDK) == "table")
+            local entity = SDK.entity(12)
+            assert(entity:is_bound())
+            assert(entity:valid())
+            assert(entity:handle() == 12)
+            assert(SDK.player(13):handle() == 13)
+            assert(SDK.vehicle(14):handle() == 14)
+            assert(SDK.camera(15):handle() == 15)
+            assert(SDK.has_local_player())
+            assert(SDK.local_player():handle() == 77)
         )lua", sol::script_pass_on_error);
 
         if (!bindingCheck.valid()) {
