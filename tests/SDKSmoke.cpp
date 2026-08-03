@@ -16,6 +16,8 @@
 #include "sdk/Vehicle.hpp"
 #include "sdk/VehicleManager.hpp"
 #include "sdk/World.hpp"
+#include "sdk/WorldObject.hpp"
+#include "sdk/WorldObjectManager.hpp"
 
 #include <iostream>
 #include <type_traits>
@@ -166,11 +168,25 @@ int main() {
         return Fail("CameraManager invalid handle state failed.");
     }
 
+    smf::sdk::WorldObjectManager& objects = services.Objects();
+    const smf::sdk::WorldObject object = objects.FromHandle(37);
+    if (!object || object.Handle() != 37 || object.Services() != &services) {
+        return Fail("WorldObjectManager handle construction failed.");
+    }
+
+    const smf::sdk::WorldObject invalidObject =
+        objects.FromHandle(smf::sdk::InvalidEntityHandle);
+    if (invalidObject || !invalidObject.IsBound() ||
+        invalidObject.Services() != &services) {
+        return Fail("WorldObjectManager invalid handle state failed.");
+    }
+
     smf::sdk::World& world = services.GameWorld();
     if (&world.Entities() != &services.Entities() ||
         &world.Players() != &services.Players() ||
         &world.Vehicles() != &services.Vehicles() ||
-        &world.Cameras() != &services.Cameras()) {
+        &world.Cameras() != &services.Cameras() ||
+        &world.Objects() != &services.Objects()) {
         return Fail("World manager facade failed.");
     }
 

@@ -5,6 +5,7 @@
 #include "sdk/Player.hpp"
 #include "sdk/SDK.hpp"
 #include "sdk/Vehicle.hpp"
+#include "sdk/WorldObject.hpp"
 
 #include <cstdint>
 #include <string>
@@ -33,6 +34,7 @@ void LuaSDKBindings::Register(sol::state& lua, sdk::SDK& services) {
     RegisterHandleValue<sdk::Player>(lua, "Player");
     RegisterHandleValue<sdk::Vehicle>(lua, "Vehicle");
     RegisterHandleValue<sdk::Camera>(lua, "Camera");
+    RegisterHandleValue<sdk::WorldObject>(lua, "WorldObject");
 
     sol::table api = lua.create_named_table("SDK");
     api.set_function("entity", [&services](const std::uint32_t handle) {
@@ -46,6 +48,9 @@ void LuaSDKBindings::Register(sol::state& lua, sdk::SDK& services) {
     });
     api.set_function("camera", [&services](const std::uint32_t handle) {
         return services.Cameras().FromHandle(handle);
+    });
+    api.set_function("object", [&services](const std::uint32_t handle) {
+        return services.Objects().FromHandle(handle);
     });
     api.set_function("has_local_player", [&services] {
         return services.Players().HasLocal();

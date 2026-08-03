@@ -21,6 +21,7 @@ SDK::SDK(
       players_(*this),
       vehicles_(*this),
       cameras_(*this),
+      objects_(*this),
       world_(*this) {
 }
 
@@ -56,6 +57,9 @@ const VehicleManager& SDK::Vehicles() const noexcept { return vehicles_; }
 
 CameraManager& SDK::Cameras() noexcept { return cameras_; }
 const CameraManager& SDK::Cameras() const noexcept { return cameras_; }
+
+WorldObjectManager& SDK::Objects() noexcept { return objects_; }
+const WorldObjectManager& SDK::Objects() const noexcept { return objects_; }
 
 World& SDK::GameWorld() noexcept { return world_; }
 const World& SDK::GameWorld() const noexcept { return world_; }

@@ -7,6 +7,7 @@ class EntityManager;
 class PlayerManager;
 class SDK;
 class VehicleManager;
+class WorldObjectManager;
 
 class World final {
 public:
@@ -23,6 +24,9 @@ public:
 
     [[nodiscard]] CameraManager& Cameras() noexcept;
     [[nodiscard]] const CameraManager& Cameras() const noexcept;
+
+    [[nodiscard]] WorldObjectManager& Objects() noexcept;
+    [[nodiscard]] const WorldObjectManager& Objects() const noexcept;
 
 private:
     SDK* services_{};

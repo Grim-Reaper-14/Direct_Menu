@@ -13,6 +13,7 @@
 #include "sdk/SDKDiagnostics.hpp"
 #include "sdk/VehicleManager.hpp"
 #include "sdk/World.hpp"
+#include "sdk/WorldObjectManager.hpp"
 
 namespace smf::sdk {
 
@@ -65,6 +66,9 @@ public:
     [[nodiscard]] CameraManager& Cameras() noexcept;
     [[nodiscard]] const CameraManager& Cameras() const noexcept;
 
+    [[nodiscard]] WorldObjectManager& Objects() noexcept;
+    [[nodiscard]] const WorldObjectManager& Objects() const noexcept;
+
     [[nodiscard]] World& GameWorld() noexcept;
     [[nodiscard]] const World& GameWorld() const noexcept;
 
@@ -82,6 +86,7 @@ private:
     PlayerManager players_;
     VehicleManager vehicles_;
     CameraManager cameras_;
+    WorldObjectManager objects_;
     World world_;
 };
 

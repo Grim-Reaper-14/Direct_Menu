@@ -1123,6 +1123,7 @@ void Menu::RenderSdkExplorer() {
     ImGui::TextUnformatted("Player manager: Ready");
     ImGui::TextUnformatted("Vehicle manager: Ready");
     ImGui::TextUnformatted("Camera manager: Ready");
+    ImGui::TextUnformatted("World object manager: Ready");
 }
 
 void Menu::RenderLua() {

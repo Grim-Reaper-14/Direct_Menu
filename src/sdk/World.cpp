@@ -40,4 +40,12 @@ const CameraManager& World::Cameras() const noexcept {
     return services_->Cameras();
 }
 
+WorldObjectManager& World::Objects() noexcept {
+    return services_->Objects();
+}
+
+const WorldObjectManager& World::Objects() const noexcept {
+    return services_->Objects();
+}
+
 } // namespace smf::sdk

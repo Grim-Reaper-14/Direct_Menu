@@ -124,6 +124,8 @@ set(DIRECT_MENU_SDK_SOURCES
     src/sdk/Vehicle.cpp
     src/sdk/VehicleManager.cpp
     src/sdk/World.cpp
+    src/sdk/WorldObject.cpp
+    src/sdk/WorldObjectManager.cpp
 )
 
 add_executable(Direct_Menu WIN32
