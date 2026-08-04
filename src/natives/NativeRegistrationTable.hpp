@@ -61,3 +61,5 @@ private:
 };
 
 } // namespace smf::natives
+
+#include "natives/NativeRegistrationTable.inl"
