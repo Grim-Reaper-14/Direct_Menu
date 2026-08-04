@@ -128,4 +128,69 @@ private:
     EnvironmentProbe environmentProbe_;
 };
 
+void BindGeneratedNativeRuntime(
+    NativeInvoker& invoker,
+    std::span<const NativeHash> hashes) noexcept;
+void UnbindGeneratedNativeRuntime() noexcept;
+[[nodiscard]] NativeInvoker* GeneratedNativeInvoker() noexcept;
+[[nodiscard]] NativeHash GeneratedNativeHash(std::size_t index) noexcept;
+[[nodiscard]] const std::string& GeneratedNativeLastError() noexcept;
+void SetGeneratedNativeLastError(std::string errorMessage);
+
 } // namespace smf::natives
+
+namespace YimMenu {
+
+class NativeInvoker final {
+public:
+    template <std::size_t Index, typename Result, bool FixVectors, typename... Args>
+    static Result Invoke(Args... arguments) {
+        (void)FixVectors;
+
+        auto* invoker = smf::natives::GeneratedNativeInvoker();
+        if (invoker == nullptr) {
+            smf::natives::SetGeneratedNativeLastError(
+                "Generated native runtime is not bound to a NativeInvoker.");
+            if constexpr (!std::is_void_v<Result>) {
+                return Result{};
+            } else {
+                return;
+            }
+        }
+
+        const auto hash = smf::natives::GeneratedNativeHash(Index);
+        if (hash == 0) {
+            smf::natives::SetGeneratedNativeLastError(
+                "Generated native index is outside the loaded crossmap.");
+            if constexpr (!std::is_void_v<Result>) {
+                return Result{};
+            } else {
+                return;
+            }
+        }
+
+        std::string errorMessage;
+        if constexpr (std::is_void_v<Result>) {
+            if (!invoker->InvokeVoid(hash, errorMessage, arguments...)) {
+                smf::natives::SetGeneratedNativeLastError(std::move(errorMessage));
+            } else {
+                smf::natives::SetGeneratedNativeLastError({});
+            }
+            return;
+        } else {
+            const auto result = invoker->Invoke<Result>(
+                hash,
+                errorMessage,
+                arguments...);
+            if (!result) {
+                smf::natives::SetGeneratedNativeLastError(std::move(errorMessage));
+                return Result{};
+            }
+
+            smf::natives::SetGeneratedNativeLastError({});
+            return *result;
+        }
+    }
+};
+
+} // namespace YimMenu
