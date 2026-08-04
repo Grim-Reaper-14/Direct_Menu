@@ -104,6 +104,9 @@ target_compile_definitions(imgui PUBLIC
 )
 
 set(DIRECT_MENU_NATIVE_SOURCES
+    src/natives/NativeCrossmap.cpp
+    src/natives/NativeDatabase.cpp
+    src/natives/NativeHookManager.cpp
     src/natives/NativeInvoker.cpp
     src/natives/NativeQueue.cpp
     src/natives/NativeRegistry.cpp
