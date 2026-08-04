@@ -1,4 +1,6 @@
 #include "natives/NativeCallContext.hpp"
+#include "natives/NativeCrossmap.hpp"
+#include "natives/NativeHookManager.hpp"
 #include "natives/NativeInvoker.hpp"
 #include "natives/NativeQueue.hpp"
 #include "natives/NativeRegistry.hpp"
@@ -103,6 +105,162 @@ int main() {
     if (statistics.frames != 2 || statistics.executedTasks != 4 ||
         statistics.failedTasks != 1 || statistics.lastFrameTasks != 2) {
         return Fail("NativeScheduler statistics failed.");
+    }
+
+    // -----------------------------------------------------------------------
+    // NativeHookManager: basic hook + invocation through NativeInvoker
+    // -----------------------------------------------------------------------
+    {
+        auto hookRegistry = std::make_shared<NativeRegistry>();
+        auto hookCrossmap = std::make_shared<NativeCrossmap>();
+
+        NativeHookManager hookManager(hookRegistry, hookCrossmap);
+
+        NativeInvoker hookInvoker;
+        hookInvoker.SetEnvironmentProbe([] {
+            return NativeInvoker::Environment::SinglePlayer;
+        });
+
+        hookManager.Attach(hookInvoker);
+        if (!hookManager.IsAttached()) {
+            return Fail("NativeHookManager Attach failed.");
+        }
+
+        constexpr NativeHash MultiplyHash = 0x2001;
+
+        const bool hooked = hookManager.Hook(
+            MultiplyHash,
+            [](NativeCallContext& ctx) {
+                const auto args = ctx.Arguments();
+                if (args.size() == 2) {
+                    ctx.ReturnStorage()[0] = args[0] * args[1];
+                }
+            });
+        if (!hooked || hookManager.HookCount() != 1) {
+            return Fail("NativeHookManager Hook registration failed.");
+        }
+
+        std::string hookError;
+        const auto product = hookInvoker.Invoke<std::uint64_t>(
+            MultiplyHash, hookError, 6ULL, 7ULL);
+        if (!product || *product != 42 || !hookError.empty()) {
+            return Fail("NativeHookManager hook invocation failed.");
+        }
+
+        // Unhook and verify failure with a clear error message.
+        if (!hookManager.Unhook(MultiplyHash)) {
+            return Fail("NativeHookManager Unhook failed.");
+        }
+        if (hookManager.HookCount() != 0) {
+            return Fail("NativeHookManager HookCount after unhook failed.");
+        }
+
+        const auto afterUnhook = hookInvoker.Invoke<std::uint64_t>(
+            MultiplyHash, hookError, 6ULL, 7ULL);
+        if (afterUnhook || hookError.empty()) {
+            return Fail("NativeHookManager should fail after unhook.");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // NativeHookManager: crossmap hash translation
+    // -----------------------------------------------------------------------
+    {
+        auto hookRegistry = std::make_shared<NativeRegistry>();
+        auto hookCrossmap = std::make_shared<NativeCrossmap>();
+
+        constexpr NativeHash OriginalHash = 0x3001;
+        constexpr NativeHash CurrentHash  = 0x3002;
+
+        // Register a crossmap entry: original → current
+        hookCrossmap->Register(OriginalHash, CurrentHash);
+
+        NativeHookManager hookManager(hookRegistry, hookCrossmap);
+
+        NativeInvoker hookInvoker;
+        hookInvoker.SetEnvironmentProbe([] {
+            return NativeInvoker::Environment::SinglePlayer;
+        });
+        hookManager.Attach(hookInvoker);
+
+        // Hook using the original hash; internally it should be stored under
+        // the current hash after crossmap resolution.
+        hookManager.Hook(
+            OriginalHash,
+            [](NativeCallContext& ctx) {
+                ctx.ReturnStorage()[0] = 99;
+            });
+
+        std::string crossmapError;
+        // Invoke with the original hash; crossmap should translate it.
+        const auto crossmapResult = hookInvoker.Invoke<std::uint64_t>(
+            OriginalHash, crossmapError);
+        if (!crossmapResult || *crossmapResult != 99 || !crossmapError.empty()) {
+            return Fail("NativeHookManager crossmap translation failed.");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // NativeHookManager: fallback backend when no hook is registered
+    // -----------------------------------------------------------------------
+    {
+        auto hookRegistry = std::make_shared<NativeRegistry>();
+        auto hookCrossmap = std::make_shared<NativeCrossmap>();
+
+        NativeHookManager hookManager(hookRegistry, hookCrossmap);
+
+        NativeInvoker hookInvoker;
+        hookInvoker.SetEnvironmentProbe([] {
+            return NativeInvoker::Environment::SinglePlayer;
+        });
+        hookManager.Attach(hookInvoker);
+
+        constexpr NativeHash FallbackHash = 0x4001;
+        bool fallbackCalled = false;
+
+        hookManager.SetFallbackBackend(
+            [&fallbackCalled](
+                NativeHash /*hash*/,
+                std::span<const NativeWord> /*args*/,
+                NativeWord& result,
+                std::string& /*err*/) {
+                fallbackCalled = true;
+                result = 77;
+                return true;
+            });
+
+        std::string fallbackError;
+        const auto fallbackResult =
+            hookInvoker.Invoke<std::uint64_t>(FallbackHash, fallbackError);
+        if (!fallbackResult || *fallbackResult != 77 || !fallbackCalled ||
+            !fallbackError.empty()) {
+            return Fail("NativeHookManager fallback backend failed.");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // NativeHookManager: Detach removes backend from invoker
+    // -----------------------------------------------------------------------
+    {
+        auto hookRegistry = std::make_shared<NativeRegistry>();
+        auto hookCrossmap = std::make_shared<NativeCrossmap>();
+
+        NativeHookManager hookManager(hookRegistry, hookCrossmap);
+
+        NativeInvoker hookInvoker;
+        hookInvoker.SetEnvironmentProbe([] {
+            return NativeInvoker::Environment::SinglePlayer;
+        });
+
+        hookManager.Attach(hookInvoker);
+        hookManager.Detach();
+
+        if (hookManager.IsAttached()) {
+            return Fail("NativeHookManager IsAttached after Detach failed.");
+        }
+        if (hookInvoker.HasBackend()) {
+            return Fail("NativeHookManager Detach should clear invoker backend.");
+        }
     }
 
     return 0;
