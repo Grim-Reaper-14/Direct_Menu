@@ -1,4 +1,7 @@
 #include "features/FeatureRegistry.hpp"
+#include "features/VehicleWheelData.hpp"
+
+#include <imgui.h>
 
 #include <algorithm>
 #include <charconv>
@@ -7,6 +10,76 @@
 #include <system_error>
 
 namespace smf::features {
+namespace {
+
+int g_selectedWheelCategory = 0;
+int g_selectedWheelIndex = 0;
+bool g_customTires = false;
+
+void RenderVehicleWheelTypes() {
+    using namespace vehicle_wheels;
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Vehicle Data");
+    ImGui::SeparatorText("Wheel Types");
+
+    g_selectedWheelCategory = std::clamp(
+        g_selectedWheelCategory,
+        0,
+        static_cast<int>(Categories.size()) - 1);
+
+    const WheelCategory& currentCategory =
+        Categories[static_cast<std::size_t>(g_selectedWheelCategory)];
+
+    if (ImGui::BeginCombo("Wheel Category", currentCategory.name.data())) {
+        for (std::size_t index = 0; index < Categories.size(); ++index) {
+            const bool selected =
+                static_cast<int>(index) == g_selectedWheelCategory;
+            if (ImGui::Selectable(Categories[index].name.data(), selected)) {
+                g_selectedWheelCategory = static_cast<int>(index);
+                g_selectedWheelIndex = 0;
+            }
+            if (selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    const WheelCategory& selectedCategory =
+        Categories[static_cast<std::size_t>(g_selectedWheelCategory)];
+    g_selectedWheelIndex = std::clamp(g_selectedWheelIndex, 0, 30);
+
+    const auto& wheelNames = *selectedCategory.wheels;
+    const std::string_view selectedWheel =
+        wheelNames[static_cast<std::size_t>(g_selectedWheelIndex)];
+
+    if (ImGui::BeginCombo("Wheel", selectedWheel.data())) {
+        for (std::size_t index = 0; index < wheelNames.size(); ++index) {
+            const bool selected =
+                static_cast<int>(index) == g_selectedWheelIndex;
+            if (ImGui::Selectable(wheelNames[index].data(), selected)) {
+                g_selectedWheelIndex = static_cast<int>(index);
+            }
+            if (selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::Checkbox("Custom Tires", &g_customTires);
+    ImGui::TextDisabled(
+        "Wheel type: %d  |  Mod index: %d  |  Front slot: 23",
+        selectedCategory.wheelType,
+        g_selectedWheelIndex);
+    ImGui::TextDisabled(
+        "Motorcycles may also require rear-wheel mod slot 24.");
+    ImGui::Spacing();
+    ImGui::Separator();
+}
+
+} // namespace
 
 bool FeatureRegistry::RegisterToggle(
     std::string id,
@@ -88,6 +161,10 @@ const Feature* FeatureRegistry::Find(const std::string_view id) const {
 }
 
 std::vector<Feature*> FeatureRegistry::InCategory(const std::string_view category) {
+    if (category == "LSC") {
+        RenderVehicleWheelTypes();
+    }
+
     std::vector<Feature*> result;
     for (auto& feature : features_) {
         if (feature.category == category) {
@@ -203,4 +280,3 @@ bool FeatureRegistry::Add(Feature feature) {
 }
 
 } // namespace smf::features
-
