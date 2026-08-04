@@ -139,6 +139,8 @@ void SetGeneratedNativeLastError(std::string errorMessage);
 
 } // namespace smf::natives
 
+#include "natives/GeneratedNativeRuntime.inl"
+
 namespace YimMenu {
 
 class NativeInvoker final {
