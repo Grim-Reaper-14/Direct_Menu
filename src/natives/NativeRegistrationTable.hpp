@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <span>
@@ -16,6 +17,9 @@ namespace smf::natives {
 class NativeRegistrationTable final {
 public:
     using EngineHandler = void (*)(void* context);
+    using Resolver = std::function<std::optional<EngineHandler>(
+        std::uintptr_t tableAddress,
+        NativeHash hash)>;
 
     NativeRegistrationTable() = default;
     explicit NativeRegistrationTable(std::uintptr_t tableAddress) noexcept;
@@ -23,6 +27,9 @@ public:
     void SetAddress(std::uintptr_t tableAddress) noexcept;
     [[nodiscard]] std::uintptr_t Address() const noexcept;
     [[nodiscard]] bool IsReady() const noexcept;
+
+    void SetResolver(Resolver resolver);
+    void ClearResolver();
 
     [[nodiscard]] std::optional<EngineHandler> Resolve(NativeHash hash) const noexcept;
     void ClearCache() noexcept;
@@ -47,13 +54,9 @@ private:
         void FixVectors() noexcept;
     };
 
-    struct Registration;
-
-    [[nodiscard]] std::optional<EngineHandler> ResolveUncached(
-        NativeHash hash) const noexcept;
-
     mutable std::mutex mutex_;
     std::uintptr_t tableAddress_{};
+    Resolver resolver_;
     mutable std::unordered_map<NativeHash, EngineHandler> cache_;
 };
 
