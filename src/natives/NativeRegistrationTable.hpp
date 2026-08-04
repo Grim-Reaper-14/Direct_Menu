@@ -20,6 +20,7 @@ public:
     using Resolver = std::function<std::optional<EngineHandler>(
         std::uintptr_t tableAddress,
         NativeHash hash)>;
+    using InitNativeTables = void (*)(void* scriptProgram);
 
     NativeRegistrationTable() = default;
     explicit NativeRegistrationTable(std::uintptr_t tableAddress) noexcept;
@@ -30,6 +31,16 @@ public:
 
     void SetResolver(Resolver resolver);
     void ClearResolver();
+
+    // GTA V Enhanced resolves native hashes by passing a synthetic scrProgram
+    // through the game's InitNativeTables routine. The address supplied through
+    // SetAddress is therefore the address of InitNativeTables, not a legacy
+    // linked-list registration table.
+    void UseEnhancedResolver();
+
+    [[nodiscard]] static std::optional<EngineHandler> FindNativeHandler(
+        std::uintptr_t initNativeTablesAddress,
+        NativeHash hash) noexcept;
 
     [[nodiscard]] std::optional<EngineHandler> Resolve(NativeHash hash) const noexcept;
     void ClearCache() noexcept;
@@ -53,6 +64,18 @@ private:
 
         void FixVectors() noexcept;
     };
+
+    struct EnhancedScriptProgram {
+        std::array<std::byte, 0x2C> prefix{};
+        std::uint32_t nativeCount{};       // 0x2C
+        std::array<std::byte, 0x10> gap{}; // 0x30-0x3F
+        EngineHandler* nativeEntrypoints{}; // 0x40
+        std::array<std::byte, 0x38> tail{};
+    };
+
+    static_assert(offsetof(EnhancedScriptProgram, nativeCount) == 0x2C);
+    static_assert(offsetof(EnhancedScriptProgram, nativeEntrypoints) == 0x40);
+    static_assert(sizeof(EnhancedScriptProgram) == 0x80);
 
     mutable std::mutex mutex_;
     std::uintptr_t tableAddress_{};
