@@ -39,6 +39,40 @@ inline void NativeRegistrationTable::ClearResolver() {
     cache_.clear();
 }
 
+inline void NativeRegistrationTable::UseEnhancedResolver() {
+    SetResolver(&NativeRegistrationTable::FindNativeHandler);
+}
+
+inline std::optional<NativeRegistrationTable::EngineHandler>
+NativeRegistrationTable::FindNativeHandler(
+    const std::uintptr_t initNativeTablesAddress,
+    const NativeHash hash) noexcept {
+    if (initNativeTablesAddress == 0 || hash == 0) {
+        return std::nullopt;
+    }
+
+    try {
+        auto initNativeTables = reinterpret_cast<InitNativeTables>(
+            initNativeTablesAddress);
+
+        EngineHandler entrypoint = reinterpret_cast<EngineHandler>(hash);
+        EnhancedScriptProgram program{};
+        program.nativeCount = 1;
+        program.nativeEntrypoints = &entrypoint;
+
+        initNativeTables(static_cast<void*>(&program));
+
+        const auto rawEntrypoint = reinterpret_cast<std::uintptr_t>(entrypoint);
+        if (entrypoint == nullptr || rawEntrypoint == hash) {
+            return std::nullopt;
+        }
+
+        return entrypoint;
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
 inline std::optional<NativeRegistrationTable::EngineHandler>
 NativeRegistrationTable::Resolve(const NativeHash hash) const noexcept {
     if (hash == 0) {
